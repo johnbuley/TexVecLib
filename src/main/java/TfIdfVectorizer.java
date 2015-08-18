@@ -16,7 +16,7 @@ public class TfIdfVectorizer {
 
     }
 
-    public List<String> processInputFolder(String folderName) {
+    private List<String> processInputFolder(String folderName) {
 
         List<String> listOfDocuments = new ArrayList<String>();
         Path inputPath = Paths.get(folderName);
