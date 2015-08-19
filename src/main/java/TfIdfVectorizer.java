@@ -1,13 +1,10 @@
-import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class TfIdfVectorizer {
@@ -42,5 +39,22 @@ public class TfIdfVectorizer {
         }
 
         return listOfDocuments;
+    }
+
+    private List<List<String>> splitDocuments(List<String> listOfDocs) {
+
+        List<List<String>> listOfSplitDocs = new ArrayList<List<String>>();
+
+        for (String doc : listOfDocs) {
+            /*  Remove non-alphanumeric and non-whitespace characters,
+                replace two or more spaces with one space,
+                and cast to lower case.
+             */
+            doc = doc.replaceAll("[^a-zA-Z\\s]", " ").replaceAll("\\s+", " ").toLowerCase();
+
+            listOfSplitDocs.add(Arrays.asList(doc.split(" ")));
+        }
+
+        return listOfSplitDocs;
     }
 }

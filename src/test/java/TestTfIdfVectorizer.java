@@ -33,18 +33,18 @@ public class TestTfIdfVectorizer {
         assertEquals(expectedResult,producedResult);
     }
 
-    /*
+
     @Test
     public void testListOfDocumentsIsSplit() {
         List<List<String>> expectedResult = Arrays.asList(
-                                                Arrays.asList("The", "brown", "cow",
-                                                        "sits","in","the","grass."
+                                                Arrays.asList("the", "brown", "cow",
+                                                        "sits","in","the","grass"
                                                 ),
-                                                Arrays.asList("The", "blue", "cow",
-                                                        "sits","in","the","grass."
+                                                Arrays.asList("the", "blue", "cow",
+                                                        "sits","in","the","grass"
                                                 ),
-                                                Arrays.asList("The", "red", "cow",
-                                                        "sits","in","the","field."
+                                                Arrays.asList("the", "red", "cow",
+                                                        "sits","in","the","field"
                                                 )
                                             );
 
@@ -58,9 +58,9 @@ public class TestTfIdfVectorizer {
         List<List<String>> producedResult = null;
 
         try {
-            Method testMethod = TfIdfVectorizer.class.getDeclaredMethod("splitDocuments", null);
+            Method testMethod = TfIdfVectorizer.class.getDeclaredMethod("splitDocuments", List.class);
             testMethod.setAccessible(true);
-            producedResult = (List<List<String>>)testMethod.invoke(testInput);
+            producedResult = (List<List<String>>)testMethod.invoke(vec, testInput);
         }
         catch (Exception e) {
             System.out.println(e.toString());
@@ -68,5 +68,5 @@ public class TestTfIdfVectorizer {
 
         assertEquals(expectedResult,producedResult);
     }
-    */
+
 }
