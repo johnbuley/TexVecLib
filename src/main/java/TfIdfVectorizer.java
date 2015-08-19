@@ -3,14 +3,19 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class TfIdfVectorizer {
 
-    public TfIdfVectorizer() {
+    boolean initialized;
+    Map<String,Integer> tfHash;
+    Map<String,Integer> idfHash;
 
+    public TfIdfVectorizer() {
+        initialized = false;
+        tfHash = new ConcurrentHashMap<String,Integer>();
+        idfHash = new ConcurrentHashMap<String,Integer>();
     }
 
     private List<String> processInputFolder(String folderName) {
@@ -46,13 +51,14 @@ public class TfIdfVectorizer {
         List<List<String>> listOfSplitDocs = new ArrayList<List<String>>();
 
         for (String doc : listOfDocs) {
+
             /*  Remove non-alphanumeric and non-whitespace characters,
                 replace two or more spaces with one space,
-                and cast to lower case.
-             */
-            doc = doc.replaceAll("[^a-zA-Z\\s]", " ").replaceAll("\\s+", " ").toLowerCase();
+                and cast to lower case.*/
 
+            doc = doc.replaceAll("[^a-zA-Z\\s]", " ").replaceAll("\\s+", " ").toLowerCase();
             listOfSplitDocs.add(Arrays.asList(doc.split(" ")));
+
         }
 
         return listOfSplitDocs;

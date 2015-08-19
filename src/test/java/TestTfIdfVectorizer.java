@@ -11,24 +11,14 @@ public class TestTfIdfVectorizer {
     @Test
     public void testFolderOfTextFilesIsLoadedIntoList() {
         List<String> expectedResult = Arrays.asList(
-                                        "The brown cow sits in the grass.",
+                                        "The9 brown cow . sits   in the grass.",
                                         "The blue cow sits in the grass.",
-                                        "The red cow sits in the field."
+                                        "The blue !!  cow sits in the field."
                                       );
 
         TfIdfVectorizer vec = new TfIdfVectorizer();
 
-        List<String> producedResult = null;
-
-        /* Use reflection to change access of processInputFolder */
-        try {
-            Method testMethod = TfIdfVectorizer.class.getDeclaredMethod("processInputFolder",String.class);
-            testMethod.setAccessible(true);
-            producedResult = (List<String>)testMethod.invoke(vec, "./src/test/resources/testInputFolder/");
-        }
-        catch (Exception e) {
-            System.out.println(e.toString());
-        }
+        List<String> producedResult = (List<String>)callTfIdfPrivateMethod("processInputFolder",String.class,vec,"./src/test/resources/testInputFolder/");
 
         assertEquals(expectedResult,producedResult);
     }
@@ -43,30 +33,40 @@ public class TestTfIdfVectorizer {
                                                 Arrays.asList("the", "blue", "cow",
                                                         "sits","in","the","grass"
                                                 ),
-                                                Arrays.asList("the", "red", "cow",
+                                                Arrays.asList("the", "blue", "cow",
                                                         "sits","in","the","field"
                                                 )
                                             );
 
+
         List<String> testInput = Arrays.asList(
-                                    "The brown cow sits in the grass.",
+                                    "The9 brown cow . sits   in the grass.",
                                     "The blue cow sits in the grass.",
-                                    "The red cow sits in the field."
+                                    "The blue !! cow sits in the field."
                                  );
 
         TfIdfVectorizer vec = new TfIdfVectorizer();
-        List<List<String>> producedResult = null;
+
+        List<List<String>> producedResult = (List<List<String>>)callTfIdfPrivateMethod("splitDocuments",List.class,vec,testInput);
+
+        assertEquals(expectedResult,producedResult);
+    }
+
+    public Object callTfIdfPrivateMethod(String methodName, Class<?> inputType, TfIdfVectorizer vec, Object input) {
+
+        Object result = null;
 
         try {
-            Method testMethod = TfIdfVectorizer.class.getDeclaredMethod("splitDocuments", List.class);
+            Method testMethod = TfIdfVectorizer.class.getDeclaredMethod(methodName, inputType);
             testMethod.setAccessible(true);
-            producedResult = (List<List<String>>)testMethod.invoke(vec, testInput);
+            result = testMethod.invoke(vec, input);
         }
         catch (Exception e) {
             System.out.println(e.toString());
         }
 
-        assertEquals(expectedResult,producedResult);
+        return result;
+
     }
 
 }
