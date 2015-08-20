@@ -5,6 +5,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class TfIdfVectorizer {
 
@@ -62,5 +64,48 @@ public class TfIdfVectorizer {
         }
 
         return listOfSplitDocs;
+    }
+
+    private ConcurrentHashMap<String,idfWord> getNewIdfWordHash(List<List<String>> listOfDocuments, int minDf, float maxDfRatio) {
+
+        List<HashSet<String>> listOfDocDistinctWordSets = new ArrayList<HashSet<String>>();
+
+        listOfDocuments.forEach(d -> listOfDocDistinctWordSets.add(new HashSet<String>(d)));
+
+
+        /* Use a flatmap to find the number of documents in which each word occurs
+           at least once.
+         */
+        Map<String,Integer> allWordCounts =
+                listOfDocDistinctWordSets.stream()
+                    .flatMap(Collection::stream)
+                    .collect(Collectors.groupingBy(Function.identity(), Collectors.summingInt(e -> 1)));
+
+
+        int docCount = listOfDocuments.size();
+
+        /* Calculate max-allowable document frequency based on maxDfRatio and number of docs */
+        int maxDf = (int)Math.floor(maxDfRatio*docCount);
+
+
+        /* Filter the result of the previous line according to max- and min-allowable
+           document frequency, then collect into a map where the value is the idf.
+         */
+        Map<String, Double> wordCounts =
+                allWordCounts.entrySet().stream()
+                        .filter(e -> (e.getValue() >= minDf && e.getValue() <= maxDf))
+                        .collect(Collectors.toMap(e -> e.getKey(), e -> Math.log((float) docCount / e.getValue())));
+
+
+        ConcurrentHashMap<String, idfWord> idfWordHash = new ConcurrentHashMap<>();
+        int i = 0;
+        /* Copy elements of wordCounts to a ConcurrentHashMap, along with a
+           unique id that will be used to index the final tf-idf matrix.
+         */
+        for(Map.Entry e : wordCounts.entrySet()) {
+            idfWordHash.put((String)e.getKey(),new idfWord(i++,(double)e.getValue()));
+        }
+
+        return idfWordHash;
     }
 }
