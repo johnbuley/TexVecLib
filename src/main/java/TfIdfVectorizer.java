@@ -11,18 +11,28 @@ import java.util.stream.Collectors;
 public class TfIdfVectorizer {
 
     private boolean initialized;
-    private Map<String,Integer> tfHash;
-    private Map<String,IdfWord> idfHash;
+    private ConcurrentHashMap<String,IdfWord> idfHash;
 
     public TfIdfVectorizer() {
         initialized = false;
-        tfHash = new ConcurrentHashMap<>();
         idfHash = new ConcurrentHashMap<>();
     }
 
     public void fit(List<List<String>> input, int minDf, float maxDfRatio) {
 
         this.idfHash = this.getNewIdfWordHash(input, minDf, maxDfRatio);
+        this.initialized = true;
+
+    }
+
+    public TfIdfMatrix transform(List<List<String>> input) {
+
+        if (initialized)
+            return this.getTfIdfMatrix(input,this.idfHash);
+        else {
+            System.err.println("TfIdfVectorizer object not initialized with fit().");
+            return null;
+        }
 
     }
 
@@ -32,6 +42,9 @@ public class TfIdfVectorizer {
         Path inputPath = Paths.get(folderName);
 
         if (Files.exists(inputPath)) {
+            /* This block is a clear use case for a closure, but there is no way
+               to forward the IOException.
+             */
             try {
                 DirectoryStream<Path> stream = Files.newDirectoryStream(inputPath, "*.txt");
 
@@ -82,8 +95,9 @@ public class TfIdfVectorizer {
          */
         Map<String,Integer> allWordCounts =
                 listOfDocDistinctWordSets.stream()
-                    .flatMap(Collection::stream)
-                    .collect(Collectors.groupingBy(Function.identity(), Collectors.summingInt(e -> 1)));
+                                         .flatMap(Collection::stream)
+                                         .collect(Collectors.groupingBy(Function.identity(),
+                                                                        Collectors.summingInt(e -> 1)));
 
 
         int docCount = listOfDocuments.size();
@@ -96,8 +110,9 @@ public class TfIdfVectorizer {
          */
         Map<String, Double> wordCounts =
                 allWordCounts.entrySet().stream()
-                        .filter(e -> (e.getValue() >= minDf && e.getValue() <= maxDf))
-                        .collect(Collectors.toMap(Map.Entry::getKey, e -> Math.log((float) docCount / e.getValue())));
+                                        .filter(e -> (e.getValue() >= minDf && e.getValue() <= maxDf))
+                                        .collect(Collectors.toMap(Map.Entry::getKey,
+                                                                  e -> Math.log((float) docCount / e.getValue())));
 
 
         ConcurrentHashMap<String, IdfWord> idfWordHash = new ConcurrentHashMap<>();
@@ -114,56 +129,83 @@ public class TfIdfVectorizer {
 
     private TfIdfMatrix getTfIdfMatrix(List<List<String>> listOfDocuments, ConcurrentHashMap<String, IdfWord> idfHash) {
 
-        int numDocs = listOfDocuments.size();
-        double[][] resultMatrix = new double[numDocs][idfHash.size()];
-
 
         /* This method requires two passes over the documents.  This first pass
            determines the subset of the global vocabulary that is present in
            the documents.  In this way, the tf-idf matrix need only be as large
            as numDocs x |subset of vocabulary|.
          */
-        List<String> presentWordsList =
-                listOfDocuments.stream()
-                    .flatMap(Collection::stream)
-                    .filter(e -> idfHash.containsKey(e))
-                    .distinct()
-                    .collect(Collectors.toList());
+        List<String> presentWordsList = getPresentWordsList(listOfDocuments, idfHash);
 
-        HashMap<String,Integer> presentWordsListIndex = new HashMap<>();
+        ConcurrentHashMap<String,Integer> presentWordsListIndex = getPresentWordsIndex(presentWordsList);
 
-        int c = 0;
-        for(String word : presentWordsList) {
-            presentWordsListIndex.put(word,c++);
-        }
+
+        int numDocs = listOfDocuments.size();
+        double[][] resultMatrix = new double[numDocs][presentWordsList.size()];
 
 
         /* This second pass calculates the tf-idf for each word, and writes
            it to the result matrix.
          */
         for (int i = 0; i < numDocs; i++) {
-            /* Perform word count */
-            Map<String,Integer> wordCounts =
-                    listOfDocuments.get(i).stream()
-                        .collect(Collectors.groupingBy(Function.identity(), Collectors.summingInt(e -> 1)));
 
-            /* Filter for words present in global vocab, calculate tf-idf, and collect */
-            Map<String,Double> tfIdfEntries =
-                    wordCounts.entrySet().stream()
-                        .filter(e -> idfHash.containsKey(e.getKey()))
-                        .map(e ->
-                            new Object() {
-                                String key = e.getKey();
-                                Double value = e.getValue() * idfHash.get(e.getKey()).idf;
-                            })
-                        .collect(Collectors.toMap(e -> e.key,e->e.value));
+            Map<String,Double> tfIdfEntries = getTfIdfEntries(listOfDocuments.get(i),idfHash);
 
-            /* Write to result matrix */
-            for(Map.Entry e : tfIdfEntries.entrySet()) {
-                resultMatrix[i][presentWordsListIndex.get(e.getKey())] = (double)e.getValue();
-            }
+            writeTfIdfEntriesToMatrix(tfIdfEntries,presentWordsListIndex,i,resultMatrix);
+
         }
 
         return new TfIdfMatrix(resultMatrix,presentWordsList);
+    }
+
+    private void writeTfIdfEntriesToMatrix(Map<String,Double> tfIdfEntries,
+                                           ConcurrentHashMap<String,Integer> presentWordsListIndex,
+                                           int row,double[][] resultMatrix) {
+
+        for(Map.Entry e : tfIdfEntries.entrySet()) {
+            resultMatrix[row][presentWordsListIndex.get(e.getKey())] = (double)e.getValue();
+        }
+
+    }
+
+    private Map<String,Double> getTfIdfEntries(List<String> document, ConcurrentHashMap<String,IdfWord> idfHash) {
+
+            Map<String,Integer> wordCounts =
+                    document.stream()
+                            .collect(Collectors.groupingBy(Function.identity(), Collectors.summingInt(e -> 1)));
+
+            /* Filter for words present in global vocab, calculate tf-idf, and collect */
+            return wordCounts.entrySet().stream()
+                                        .filter(e -> idfHash.containsKey(e.getKey()))
+                                        .map(e ->
+                                                new Object() {
+                                                    String key = e.getKey();
+                                                    Double value = e.getValue() * idfHash.get(e.getKey()).idf;
+                                                })
+                                        .collect(Collectors.toMap(e -> e.key, e -> e.value));
+
+    }
+
+    private List<String> getPresentWordsList(List<List<String>> listOfDocuments, ConcurrentHashMap<String,IdfWord> idfHash) {
+
+        return listOfDocuments.stream()
+                              .flatMap(Collection::stream)
+                              .filter(e -> idfHash.containsKey(e))
+                              .distinct()
+                              .collect(Collectors.toList());
+
+    }
+
+    private ConcurrentHashMap<String,Integer> getPresentWordsIndex(List<String> presentWordsList) {
+
+        ConcurrentHashMap<String,Integer> presentWordsListIndex = new ConcurrentHashMap<>();
+
+        int c = 0;
+        for(String word : presentWordsList) {
+            presentWordsListIndex.put(word,c++);
+        }
+
+        return presentWordsListIndex;
+
     }
 }
