@@ -4,9 +4,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class TfIdfVectorizer {
 
@@ -18,8 +19,20 @@ public class TfIdfVectorizer {
         idfHash = new ConcurrentHashMap<>();
     }
 
+    public void fit(String inputFolder, int minDf, float maxDfRatio) {
+
+        /* This is an overloaded method for handling folder inputs */
+        List<String> listOfDocuments = this.processInputFolder(inputFolder);
+        List<List<String>> listOfSplitDocuments = this.splitDocuments(listOfDocuments);
+
+        /* Call 'base' method now that input is formatted */
+        this.fit(listOfSplitDocuments,minDf,maxDfRatio);
+
+    }
+
     public void fit(List<List<String>> input, int minDf, float maxDfRatio) {
 
+        /* 'Base' method for fitting the model */
         this.idfHash = this.getNewIdfWordHash(input, minDf, maxDfRatio);
         this.initialized = true;
 
@@ -74,14 +87,16 @@ public class TfIdfVectorizer {
             and cast to lower case.*/
         return listOfDocs.stream()
                          .map(d -> d.replaceAll("[^a-zA-Z\\s]", " ")
-                                    .replaceAll("\\s+", " ")
-                                    .toLowerCase())
+                                 .replaceAll("\\s+", " ")
+                                 .toLowerCase())
                          .map(d -> Arrays.asList(d.split(" ")))
                          .collect(Collectors.toList());
 
     }
 
-    private ConcurrentHashMap<String, IdfWord> getNewIdfWordHash(List<List<String>> listOfDocuments, int minDf, float maxDfRatio) {
+    private ConcurrentHashMap<String, IdfWord> getNewIdfWordHash(
+                                                    List<List<String>> listOfDocuments,
+                                                    int minDf, float maxDfRatio) {
 
         List<HashSet<String>> listOfDocDistinctWordSets = new ArrayList<>();
         listOfDocuments.forEach(d -> listOfDocDistinctWordSets.add(new HashSet<>(d)));
@@ -92,9 +107,9 @@ public class TfIdfVectorizer {
          */
         Map<String,Integer> allWordCounts =
                 listOfDocDistinctWordSets.stream()
-                        .flatMap(Collection::stream)
-                        .collect(Collectors.groupingBy(Function.identity(),
-                                Collectors.summingInt(e -> 1)));
+                                         .flatMap(Collection::stream)
+                                         .collect(Collectors.groupingBy(Function.identity(),
+                                                 Collectors.summingInt(e -> 1)));
 
 
         int docCount = listOfDocuments.size();
@@ -107,9 +122,9 @@ public class TfIdfVectorizer {
          */
         Map<String, Double> wordCounts =
                 allWordCounts.entrySet().stream()
-                        .filter(e -> (e.getValue() >= minDf && e.getValue() <= maxDf))
-                        .collect(Collectors.toMap(Map.Entry::getKey,
-                                e -> Math.log((float) docCount / e.getValue())));
+                                        .filter(e -> (e.getValue() >= minDf && e.getValue() <= maxDf))
+                                        .collect(Collectors.toMap(Map.Entry::getKey,
+                                                                  e -> Math.log((float) docCount / e.getValue())));
 
 
         ConcurrentHashMap<String, IdfWord> idfWordHash = new ConcurrentHashMap<>();
@@ -124,7 +139,8 @@ public class TfIdfVectorizer {
         return idfWordHash;
     }
 
-    private TfIdfMatrix getTfIdfMatrix(List<List<String>> listOfDocuments, ConcurrentHashMap<String, IdfWord> idfHash) {
+    private TfIdfMatrix getTfIdfMatrix(List<List<String>> listOfDocuments,
+                                       ConcurrentHashMap<String, IdfWord> idfHash) {
 
 
         /* This method requires two passes over the documents.  This first pass
@@ -143,16 +159,58 @@ public class TfIdfVectorizer {
 
         /* This second pass calculates the tf-idf for each word, and writes
            it to the result matrix.
-         */
-        for (int i = 0; i < numDocs; i++) {
-
-            Map<String,Double> tfIdfEntries = getTfIdfEntries(listOfDocuments.get(i),idfHash);
-
-            writeTfIdfEntriesToMatrix(tfIdfEntries,presentWordsListIndex,i,resultMatrix);
-
-        }
+        */
+        asyncCalcTfIdfAndWrite(listOfDocuments,idfHash,presentWordsListIndex,resultMatrix);
 
         return new TfIdfMatrix(resultMatrix,presentWordsList);
+    }
+
+    private void asyncCalcTfIdfAndWrite(List<List<String>> listOfDocuments, ConcurrentHashMap<String,IdfWord> idfHash,
+                                        ConcurrentHashMap<String,Integer> presentWordsListIndex, double[][] resultMatrix) {
+
+
+        /* This method uses an ExecutorService to produce a collection of
+           futures, and then a stream on those futures to determine if the
+           tasks are completed.
+        */
+        ExecutorService executorService = Executors.newFixedThreadPool(4);
+
+        List<Integer> numDocRange =
+                IntStream.iterate(0, n -> n + 1)
+                         .limit(listOfDocuments.size())
+                         .boxed()
+                         .collect(Collectors.toList());
+
+        List<Future<?>> tasks = numDocRange.stream()
+                                           .map(i ->
+                                                executorService.submit(() ->
+                                                        writeTfIdfEntriesToMatrix(
+                                                        getTfIdfEntries(listOfDocuments.get(i),idfHash),
+                                                        presentWordsListIndex,i,
+                                                        resultMatrix)))
+                                           .collect(Collectors.toList());
+
+        waitForTasksToComplete(tasks);
+
+        executorService.shutdownNow();
+    }
+
+    private void waitForTasksToComplete(List<Future<?>> tasks) {
+
+        try {
+            int checkSum = 0;
+            while (checkSum != tasks.size()) {
+                checkSum = (int)tasks.stream()
+                                     .map(task -> task.isDone())
+                                     .filter(b -> b) /* The elements were mapped to a boolean */
+                                     .count();
+                Thread.sleep(5);
+            }
+        }
+        catch (Exception e) {
+            System.out.println("Timeout");
+        }
+
     }
 
     private void writeTfIdfEntriesToMatrix(Map<String,Double> tfIdfEntries,
@@ -165,7 +223,8 @@ public class TfIdfVectorizer {
 
     }
 
-    private Map<String,Double> getTfIdfEntries(List<String> document, ConcurrentHashMap<String,IdfWord> idfHash) {
+    private Map<String,Double> getTfIdfEntries(List<String> document,
+                                               ConcurrentHashMap<String,IdfWord> idfHash) {
 
             Map<String,Integer> wordCounts =
                     document.stream()
@@ -186,10 +245,10 @@ public class TfIdfVectorizer {
     private List<String> getPresentWordsList(List<List<String>> listOfDocuments, ConcurrentHashMap<String,IdfWord> idfHash) {
 
         return listOfDocuments.stream()
-                .flatMap(Collection::stream)
-                .filter(e -> idfHash.containsKey(e))
-                .distinct()
-                .collect(Collectors.toList());
+                              .flatMap(Collection::stream)
+                              .filter(e -> idfHash.containsKey(e))
+                              .distinct()
+                              .collect(Collectors.toList());
 
     }
 
@@ -205,4 +264,5 @@ public class TfIdfVectorizer {
         return presentWordsListIndex;
 
     }
+
 }
