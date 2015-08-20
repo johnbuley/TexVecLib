@@ -97,11 +97,10 @@ public class TestTfIdfVectorizer {
 
         /* Check that IdfWord indices are a valid set for indexing a matrix */
         List<Integer> producedIndices =
-                producedResult.keySet()
-                    .stream()
-                    .map(w -> producedResult.get(w).index)
-                    .sorted()
-                    .collect(Collectors.toList());
+                producedResult.keySet().stream()
+                                       .map(w -> producedResult.get(w).index)
+                                       .sorted()
+                                       .collect(Collectors.toList());
 
         for(int i = 0; i < producedIndices.size(); i++)
             assertEquals(i,(int)producedIndices.get(i));
@@ -177,7 +176,7 @@ public class TestTfIdfVectorizer {
         Class<?>[] testClassArray = {List.class,ConcurrentHashMap.class};
 
         List<String> producedResult = (List<String>)callTfIdfPrivateMethod("getPresentWordsList", vec,
-                testInputArray, testClassArray);
+                                                                           testInputArray, testClassArray);
 
 
         /* Assert that the results are of the same size, and that all elements
@@ -202,8 +201,8 @@ public class TestTfIdfVectorizer {
         Class<?>[] testClassArray = {List.class};
 
         ConcurrentHashMap<String,Integer> producedResult =
-                (ConcurrentHashMap<String,Integer>)callTfIdfPrivateMethod(
-                        "getPresentWordsIndex", vec,testInputArray, testClassArray);
+                (ConcurrentHashMap<String,Integer>)callTfIdfPrivateMethod("getPresentWordsIndex", vec,
+                                                                          testInputArray, testClassArray);
 
         /* Assert that the result is of the same size as the input, and that all
            elements of testInput (which are distinct) are contained by producedResult.
@@ -246,7 +245,9 @@ public class TestTfIdfVectorizer {
 
         /* Check that the size of the results and their value sets match */
         assertEquals(producedResult.size(), expectedResult.size());
-        expectedResult.entrySet().forEach(e -> assertEquals((double) e.getValue(), producedResult.get(e.getKey()), .001));
+        expectedResult.entrySet().forEach(e -> assertEquals((double) e.getValue(),
+                                                            producedResult.get(e.getKey()),
+                                                            .001));
 
     }
 
@@ -306,8 +307,8 @@ public class TestTfIdfVectorizer {
         Object[] testInputArray = {testInput,1,(float).7};
         Class<?>[] classArray = {List.class,int.class,float.class};
 
-        return (ConcurrentHashMap<String, IdfWord>)callTfIdfPrivateMethod(
-                                        "getNewIdfWordHash", vec,testInputArray, classArray);
+        return (ConcurrentHashMap<String, IdfWord>)callTfIdfPrivateMethod("getNewIdfWordHash", vec,
+                                                                          testInputArray, classArray);
 
     }
 
