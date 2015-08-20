@@ -69,19 +69,16 @@ public class TfIdfVectorizer {
 
     private List<List<String>> splitDocuments(List<String> listOfDocs) {
 
-        List<List<String>> listOfSplitDocs = new ArrayList<>();
+        /*  Remove non-alphanumeric and non-whitespace characters,
+            replace two or more spaces with one space,
+            and cast to lower case.*/
+        return listOfDocs.stream()
+                         .map(d -> d.replaceAll("[^a-zA-Z\\s]", " ")
+                                    .replaceAll("\\s+", " ")
+                                    .toLowerCase())
+                         .map(d -> Arrays.asList(d.split(" ")))
+                         .collect(Collectors.toList());
 
-        for (String doc : listOfDocs) {
-
-            /*  Remove non-alphanumeric and non-whitespace characters,
-                replace two or more spaces with one space,
-                and cast to lower case.*/
-            doc = doc.replaceAll("[^a-zA-Z\\s]", " ").replaceAll("\\s+", " ").toLowerCase();
-            listOfSplitDocs.add(Arrays.asList(doc.split(" ")));
-
-        }
-
-        return listOfSplitDocs;
     }
 
     private ConcurrentHashMap<String, IdfWord> getNewIdfWordHash(List<List<String>> listOfDocuments, int minDf, float maxDfRatio) {
@@ -95,9 +92,9 @@ public class TfIdfVectorizer {
          */
         Map<String,Integer> allWordCounts =
                 listOfDocDistinctWordSets.stream()
-                                         .flatMap(Collection::stream)
-                                         .collect(Collectors.groupingBy(Function.identity(),
-                                                                        Collectors.summingInt(e -> 1)));
+                        .flatMap(Collection::stream)
+                        .collect(Collectors.groupingBy(Function.identity(),
+                                Collectors.summingInt(e -> 1)));
 
 
         int docCount = listOfDocuments.size();
@@ -110,9 +107,9 @@ public class TfIdfVectorizer {
          */
         Map<String, Double> wordCounts =
                 allWordCounts.entrySet().stream()
-                                        .filter(e -> (e.getValue() >= minDf && e.getValue() <= maxDf))
-                                        .collect(Collectors.toMap(Map.Entry::getKey,
-                                                                  e -> Math.log((float) docCount / e.getValue())));
+                        .filter(e -> (e.getValue() >= minDf && e.getValue() <= maxDf))
+                        .collect(Collectors.toMap(Map.Entry::getKey,
+                                e -> Math.log((float) docCount / e.getValue())));
 
 
         ConcurrentHashMap<String, IdfWord> idfWordHash = new ConcurrentHashMap<>();
@@ -189,10 +186,10 @@ public class TfIdfVectorizer {
     private List<String> getPresentWordsList(List<List<String>> listOfDocuments, ConcurrentHashMap<String,IdfWord> idfHash) {
 
         return listOfDocuments.stream()
-                              .flatMap(Collection::stream)
-                              .filter(e -> idfHash.containsKey(e))
-                              .distinct()
-                              .collect(Collectors.toList());
+                .flatMap(Collection::stream)
+                .filter(e -> idfHash.containsKey(e))
+                .distinct()
+                .collect(Collectors.toList());
 
     }
 
