@@ -19,33 +19,60 @@ public class TfIdfVectorizer {
         idfHash = new ConcurrentHashMap<>();
     }
 
-    public void fit(String inputFolder, int minDf, float maxDfRatio) {
+    /* Base method for fitting the model */
+    public void fit(List<String> input, int minDf, float maxDfRatio) {
 
-        /* This is an overloaded method for handling folder inputs */
-        List<String> listOfDocuments = this.processInputFolder(inputFolder);
-        List<List<String>> listOfSplitDocuments = this.splitDocuments(listOfDocuments);
-
-        /* Call 'base' method now that input is formatted */
-        this.fit(listOfSplitDocuments,minDf,maxDfRatio);
-
-    }
-
-    public void fit(List<List<String>> input, int minDf, float maxDfRatio) {
-
-        /* 'Base' method for fitting the model */
-        this.idfHash = this.getNewIdfWordHash(input, minDf, maxDfRatio);
+        this.idfHash = this.getNewIdfWordHash(this.splitDocuments(input), minDf, maxDfRatio);
         this.initialized = true;
 
     }
 
-    public TfIdfMatrix transform(List<List<String>> input) {
+    /* Base method for generating a tf-idf matrix */
+    public TfIdfMatrix transform(List<String> input) {
 
         if (initialized)
-            return this.getTfIdfMatrix(input,this.idfHash);
+            return this.getTfIdfMatrix(this.splitDocuments(input),this.idfHash);
         else {
             System.err.println("TfIdfVectorizer object not initialized with fit().");
             return null;
         }
+
+    }
+
+    /* Base method for fitting and transforming in one step */
+    public TfIdfMatrix fitTransform(List<String> input, int minDf, float maxDfRatio) {
+
+        this.fit(input,minDf,maxDfRatio);
+        return transform(input);
+
+    }
+
+    /* This is an overloaded method for handling folder inputs */
+    public void fit(String inputFolder, int minDf, float maxDfRatio) {
+
+        /* Call 'base' method now that input is formatted */
+        this.fit(this.handleFolder(inputFolder), minDf, maxDfRatio);
+
+    }
+
+    /* This is an overloaded method for handling folder inputs */
+    public TfIdfMatrix transform(String inputFolder) {
+
+        return this.transform(this.handleFolder(inputFolder));
+
+    }
+
+    /* This is an overloaded method for handling folder inputs */
+    public TfIdfMatrix fitTransform(String inputFolder, int minDf, float maxDfRatio) {
+
+        /* Call 'base' method now that input is formatted */
+        return fitTransform(this.handleFolder(inputFolder), minDf, maxDfRatio);
+
+    }
+
+    private List<String> handleFolder(String inputFolder) {
+
+        return this.processInputFolder(inputFolder);
 
     }
 
@@ -94,9 +121,8 @@ public class TfIdfVectorizer {
 
     }
 
-    private ConcurrentHashMap<String, IdfWord> getNewIdfWordHash(
-                                                    List<List<String>> listOfDocuments,
-                                                    int minDf, float maxDfRatio) {
+    private ConcurrentHashMap<String, IdfWord> getNewIdfWordHash(List<List<String>> listOfDocuments,
+                                                                 int minDf, float maxDfRatio) {
 
         List<HashSet<String>> listOfDocDistinctWordSets = new ArrayList<>();
         listOfDocuments.forEach(d -> listOfDocDistinctWordSets.add(new HashSet<>(d)));
@@ -162,6 +188,8 @@ public class TfIdfVectorizer {
         */
         asyncCalcTfIdfAndWrite(listOfDocuments,idfHash,presentWordsListIndex,resultMatrix);
 
+        normalizeTfIdfMatrixRowWise(resultMatrix);
+
         return new TfIdfMatrix(resultMatrix,presentWordsList);
     }
 
@@ -183,11 +211,11 @@ public class TfIdfVectorizer {
 
         List<Future<?>> tasks = numDocRange.stream()
                                            .map(i ->
-                                                executorService.submit(() ->
-                                                        writeTfIdfEntriesToMatrix(
-                                                        getTfIdfEntries(listOfDocuments.get(i),idfHash),
-                                                        presentWordsListIndex,i,
-                                                        resultMatrix)))
+                                                   executorService.submit(() ->
+                                                           writeTfIdfEntriesToMatrix(
+                                                                   getTfIdfEntries(listOfDocuments.get(i), idfHash),
+                                                                   presentWordsListIndex, i,
+                                                                   resultMatrix)))
                                            .collect(Collectors.toList());
 
         waitForTasksToComplete(tasks);
@@ -262,6 +290,29 @@ public class TfIdfVectorizer {
         }
 
         return presentWordsListIndex;
+
+    }
+
+    private void normalizeTfIdfMatrixRowWise(double[][] matrix) {
+        int m = matrix.length;
+        int n = matrix[0].length;
+
+        double rs = 0;
+        for(int i = 0; i < m; i++) {
+            rs = 0;
+            for (int j = 0; j < n; j++) {
+                rs += Math.pow(matrix[i][j],2);
+            }
+            rs = Math.sqrt(rs);
+            for (int j = 0; j < n; j++) {
+                matrix[i][j] /= rs;
+            }
+            rs = 0;
+            for (int j = 0; j < n; j++) {
+                rs += matrix[i][j];
+            }
+            System.out.println("Row sum: " + rs);
+        }
 
     }
 
