@@ -33,8 +33,6 @@ public class TestTfIdfVectorizer {
 
     }
 
-
-
     @Test
     public void testListOfDocumentsIsSplit() {
 
@@ -68,8 +66,6 @@ public class TestTfIdfVectorizer {
         assertEquals(expectedResult,producedResult);
 
     }
-
-
 
     @Test
     public void testGetNewIdfWordHash() {
@@ -111,8 +107,6 @@ public class TestTfIdfVectorizer {
 
     }
 
-
-
     @Test
     public void testGetTfIdfMatrix() {
 
@@ -150,21 +144,23 @@ public class TestTfIdfVectorizer {
         double[] array4 = {0,0,.8046};
         expectedResults.put("field", array4);
 
+        /* Assert that tf-idf values are equal */
         expectedResults.entrySet().forEach(
                 e -> {
                     assertEquals(
                             producedTfIdfMatrixObj.matrix[0][producedTfIdfMatrixObj.indexOf(e.getKey())],
-                            e.getValue()[0], .001);
+                            e.getValue()[0],
+                            .001);
                     assertEquals(
                             producedTfIdfMatrixObj.matrix[1][producedTfIdfMatrixObj.indexOf(e.getKey())],
-                            e.getValue()[1], .001);
+                            e.getValue()[1],
+                            .001);
                     assertEquals(
                             producedTfIdfMatrixObj.matrix[2][producedTfIdfMatrixObj.indexOf(e.getKey())],
-                            e.getValue()[2], .001);
+                            e.getValue()[2],
+                            .001);
                 });
     }
-
-
 
     @Test
     public void TestGetPresentWordsList() {
@@ -192,8 +188,6 @@ public class TestTfIdfVectorizer {
         expectedResult.forEach(e -> assertTrue(producedResult.contains(e)));
 
     }
-
-
 
     @Test
     public void TestGetIndexOfPresentWordsList() {
@@ -223,12 +217,11 @@ public class TestTfIdfVectorizer {
 
         producedIndices.sort((a, b) -> a.compareTo(b));
 
+        /* Assert that the indices are distinct and span the desired range */
         for(int i : producedIndices) {
             assertEquals((int)producedIndices.get(i),i++);
         }
     }
-
-
 
     @Test
     public void TestGetTfIdfEntries() {
@@ -280,12 +273,15 @@ public class TestTfIdfVectorizer {
 
         callTfIdfPrivateMethod("writeTfIdfEntriesToMatrix", vec,testInputArray, testClassArray);
 
+        /* Assert that each element of the returned matrix is correct */
         for(int i = 0; i < 2; i++) {
             for (int j = 0; j < 4; j++) {
                 assertEquals(testMatrix[i][j],expectedMatrix[i][j],.001);
             }
         }
     }
+
+
 
     public List<List<String>> getMockTokens() {
 
@@ -317,8 +313,7 @@ public class TestTfIdfVectorizer {
 
     }
 
-
-    public Object callTfIdfPrivateMethod(String methodName, TfIdfVectorizer vec, Object[] input, Class<?>[] inputType) {
+    private Object callTfIdfPrivateMethod(String methodName, TfIdfVectorizer vec, Object[] input, Class<?>[] inputType) {
 
         Object result = null;
 

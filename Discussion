@@ -1,13 +1,16 @@
-I chose this as a project because both because there is a good deal
+I chose this as a project both because there is a good deal
 of parallelism to be drawn out and also because the problem lends
 itself to a pipeline approach.  The parallelism allows me to use
 Futures and parallel streams, the pipeline allows me to use streams
-and parallel streams, and both are an opportunity to use lambdas.
+if both kinds, and both are an opportunity to use lambdas.
 
 Initially I thought I would use parallel streams extensively.  However,
 initial testing showed that they added a good deal of overhead in
 the context of this problem, as the atomic workload was pretty small.
-So serial streams are used throughout.
+Additionally, parallel streams don't give you much control of
+the individual problem size.  So I used serial streams throughout.
+Given more time, I'd like to dig in and form a better intuition 
+around when parallel streams are worthwhile.
 
 I used Futures in the final calculation of tf-idf, assigning one
 document per task.  I used an ExecutorService, although it
@@ -20,14 +23,15 @@ to be a collection, or I ran into an issue when I was unable
 to forward a checked exception from a lambda.  In a few places,
 my insistence on using streams + lambdas may seem forced, due
 to the strict scope of closures in Java; however, I felt this
-was allowable as I was treating this more as an exercise.
+was reasonable as I was treating this more as an exercise.
 
 I wrote this library following fairly strict test-driven
 development practices.  There are a few methods, particularly
 the public ones, which only make a few assignments, and so
 they are not covered.  Also, at one point I extracted a portion
 of a method into a new one, keeping the original test but not
-writing a unit test for the new method.
+writing a unit test for the new method.  Otherwise, I was
+strict about red, green, refactor.
 
 The tests themselves are a bit convoluted, in part because
 a) the inputs are text that have to be mocked up, and b)
@@ -45,4 +49,4 @@ is in the range [0,1].
 
 There is certainly room for improvement in terms of formatting,
 documentation, and some of the code structure; but this is
-a good representation of how I approached a problem.
+a good representation of how I approach a problem.

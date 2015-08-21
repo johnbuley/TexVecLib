@@ -226,7 +226,11 @@ public class TfIdfVectorizer {
            futures, and then a stream on those futures to determine if the
            tasks are completed.
         */
-        ExecutorService executorService = Executors.newFixedThreadPool(4);
+        /* I know there's a way to get the maximum available threads from the OS,
+           but I haven't been able to find it.  My understanding is that, in this
+           case, the lesser of requested threads and maximum threads will be allocated,
+           without throwing an error. */
+        ExecutorService executorService = Executors.newFixedThreadPool(16);
 
         /* This is an overly-convoluted way of generating a list of integers */
         List<Integer> numDocRange =
@@ -249,7 +253,20 @@ public class TfIdfVectorizer {
 
         waitForTasksToComplete(tasks);
 
+
         executorService.shutdownNow();
+
+        boolean successfulShutdown = false;
+        try {
+            successfulShutdown = executorService.awaitTermination(5, TimeUnit.SECONDS);
+        }
+        catch (Exception e) {
+            System.err.println(e.toString());
+        }
+
+        if (!successfulShutdown)
+            System.err.println("Error terminating ExecutorService");
+
     }
 
     /* Called by asyncCalcTfIdfAndWrite to check the list of Futures for completion */
@@ -306,6 +323,7 @@ public class TfIdfVectorizer {
 
     }
 
+    /* Returns the subset of the global training vocabulary that is present in the inputted documents. */
     private List<String> getPresentWordsList(List<List<String>> listOfDocuments, ConcurrentHashMap<String,IdfWord> idfHash) {
 
         return listOfDocuments.stream()
@@ -316,6 +334,8 @@ public class TfIdfVectorizer {
 
     }
 
+    /* Returns a hashmap that is an index of the list returned by getPresentWordsList().  Hashmap
+       must allow asynchronous reads. */
     private ConcurrentHashMap<String,Integer> getPresentWordsIndex(List<String> presentWordsList) {
 
         ConcurrentHashMap<String,Integer> presentWordsListIndex = new ConcurrentHashMap<>();
@@ -330,7 +350,7 @@ public class TfIdfVectorizer {
     }
 
 
-
+    /* Transform each row of a matrix to a unit vector */
     private void normalizeTfIdfMatrixRowWise(double[][] matrix) {
         int m = matrix.length;
         int n = matrix[0].length;
@@ -345,7 +365,6 @@ public class TfIdfVectorizer {
             for (int j = 0; j < n; j++) {
                 matrix[i][j] /= rs;
             }
-            System.out.println("Row sum: " + rs);
         }
 
     }

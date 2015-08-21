@@ -4,11 +4,14 @@ This library allows for the transformation of a set of documents
 to a tf-idf matrix.  The matrix can then be used as input for
 the calculation of a cosine similarity matrix, for instance.
 The output is in the form of a 2d-array, so it is agnostic
-with respect to user's preferred linear algebra library.
+with respect to an external linear algebra library.
 
 term frequency(word w|doc d) = |occurrences of w in d|
 inverse doc frequency(word) = log(|set of docs| / |docs in which w occurs|)
 tf-idf = tf * idf
+
+Each row corresponds to a document, and each column corresponds
+to a word.
 
 So a word that occurs in many documents will have a low score
 when it occurs, and a word that occurs in few documents will
