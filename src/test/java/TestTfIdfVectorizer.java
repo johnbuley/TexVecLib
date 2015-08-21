@@ -14,6 +14,7 @@ public class TestTfIdfVectorizer {
 
     @Test
     public void testFolderOfTextFilesIsLoadedIntoList() {
+
         List<String> expectedResult = Arrays.asList(
                                         "The9 brown cow . sits   in the grass.",
                                         "The blue cow sits in the grass.",
@@ -29,12 +30,14 @@ public class TestTfIdfVectorizer {
                 (List<String>)callTfIdfPrivateMethod("processInputFolder", vec, testInputArray, classArray);
 
         assertEquals(expectedResult,producedResult);
+
     }
 
 
 
     @Test
     public void testListOfDocumentsIsSplit() {
+
         List<List<String>> expectedResult = Arrays.asList(
                                                 Arrays.asList("the", "brown", "cow",
                                                         "sits","in","the","grass"
@@ -63,6 +66,7 @@ public class TestTfIdfVectorizer {
                 (List<List<String>>)callTfIdfPrivateMethod("splitDocuments", vec, testInputArray, classArray);
 
         assertEquals(expectedResult,producedResult);
+
     }
 
 
@@ -104,6 +108,7 @@ public class TestTfIdfVectorizer {
 
         for(int i = 0; i < producedIndices.size(); i++)
             assertEquals(i,(int)producedIndices.get(i));
+
     }
 
 
@@ -136,13 +141,13 @@ public class TestTfIdfVectorizer {
 
         HashMap<String,double[]> expectedResults = new HashMap<>();
 
-        double[] array1 = {1.0986,0,0};
+        double[] array1 = {.9381,0,0};
         expectedResults.put("brown",array1);
-        double[] array2 = {0,.4055,.8109};
+        double[] array2 = {0,.7071,.5939};
         expectedResults.put("blue", array2);
-        double[] array3 = {.4055,.4055,0};
+        double[] array3 = {.34627,.7071,0};
         expectedResults.put("grass", array3);
-        double[] array4 = {0,0,1.0986};
+        double[] array4 = {0,0,.8046};
         expectedResults.put("field", array4);
 
         expectedResults.entrySet().forEach(

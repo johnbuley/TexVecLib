@@ -14,10 +14,18 @@ public class TfIdfVectorizer {
     private boolean initialized;
     private ConcurrentHashMap<String,IdfWord> idfHash;
 
+/* --------------------------
+   Constructor
+ * -------------------------- */
+
     public TfIdfVectorizer() {
         initialized = false;
         idfHash = new ConcurrentHashMap<>();
     }
+
+/* --------------------------
+   Public Methods
+ * -------------------------- */
 
     /* Base method for fitting the model */
     public void fit(List<String> input, int minDf, float maxDfRatio) {
@@ -51,14 +59,14 @@ public class TfIdfVectorizer {
     public void fit(String inputFolder, int minDf, float maxDfRatio) {
 
         /* Call 'base' method now that input is formatted */
-        this.fit(this.handleFolder(inputFolder), minDf, maxDfRatio);
+        this.fit(this.processInputFolder(inputFolder), minDf, maxDfRatio);
 
     }
 
     /* This is an overloaded method for handling folder inputs */
     public TfIdfMatrix transform(String inputFolder) {
 
-        return this.transform(this.handleFolder(inputFolder));
+        return this.transform(this.processInputFolder(inputFolder));
 
     }
 
@@ -66,16 +74,17 @@ public class TfIdfVectorizer {
     public TfIdfMatrix fitTransform(String inputFolder, int minDf, float maxDfRatio) {
 
         /* Call 'base' method now that input is formatted */
-        return fitTransform(this.handleFolder(inputFolder), minDf, maxDfRatio);
+        return fitTransform(this.processInputFolder(inputFolder), minDf, maxDfRatio);
 
     }
 
-    private List<String> handleFolder(String inputFolder) {
+/* --------------------------
+   Private Methods
+ * -------------------------- */
 
-        return this.processInputFolder(inputFolder);
+/* Input Processing
 
-    }
-
+    /* Finds .txt files in a given folder and collects them into a list of strings */
     private List<String> processInputFolder(String folderName) {
 
         List<String> listOfDocuments = new ArrayList<>();
@@ -107,6 +116,7 @@ public class TfIdfVectorizer {
         return listOfDocuments;
     }
 
+    /* Tokenizes the documents and collects each into a list of strings */
     private List<List<String>> splitDocuments(List<String> listOfDocs) {
 
         /*  Remove non-alphanumeric and non-whitespace characters,
@@ -121,6 +131,13 @@ public class TfIdfVectorizer {
 
     }
 
+ /* Idf Calculation
+ /* --- getNewIdfWordHash() should be extracted, there's a lot going on in there.
+
+    /* Calculates the idf for each word present in the corpus and stores in a thread-safe hashmap.
+       This constitutes the training step. The ConcurrentHashMap supports non-locking reads,
+       which is essential for asyncCalcTfIdfAndWrite()  */
+    /* idf(w) = log(|documents| * |documents in which w appears|) */
     private ConcurrentHashMap<String, IdfWord> getNewIdfWordHash(List<List<String>> listOfDocuments,
                                                                  int minDf, float maxDfRatio) {
 
@@ -143,7 +160,7 @@ public class TfIdfVectorizer {
         int maxDf = (int)Math.floor(maxDfRatio*docCount);
 
 
-        /* Filter the result of the previous line according to max- and min-allowable
+        /* Filter the result of the previous section according to max- and min-allowable
            document frequency, then collect into a map where the value is the idf.
          */
         Map<String, Double> wordCounts =
@@ -165,6 +182,11 @@ public class TfIdfVectorizer {
         return idfWordHash;
     }
 
+
+/* Tf-idf Calculation
+
+    /* This is the workhorse of the transformation step, returning the tf-idf matrix based
+       on the corpus. */
     private TfIdfMatrix getTfIdfMatrix(List<List<String>> listOfDocuments,
                                        ConcurrentHashMap<String, IdfWord> idfHash) {
 
@@ -193,6 +215,9 @@ public class TfIdfVectorizer {
         return new TfIdfMatrix(resultMatrix,presentWordsList);
     }
 
+
+
+    /* This method asynchronously calls getTfIdfEntries() and then writeTfIdfEntriesToMatrix() */
     private void asyncCalcTfIdfAndWrite(List<List<String>> listOfDocuments, ConcurrentHashMap<String,IdfWord> idfHash,
                                         ConcurrentHashMap<String,Integer> presentWordsListIndex, double[][] resultMatrix) {
 
@@ -203,12 +228,16 @@ public class TfIdfVectorizer {
         */
         ExecutorService executorService = Executors.newFixedThreadPool(4);
 
+        /* This is an overly-convoluted way of generating a list of integers */
         List<Integer> numDocRange =
                 IntStream.iterate(0, n -> n + 1)
                          .limit(listOfDocuments.size())
                          .boxed()
                          .collect(Collectors.toList());
 
+        /* Passes a callable (as a lambda) to an ExecutorService for each document.  This callable
+           calculates the non-zero entries for a particular document, and then writes these to a
+           2-d array.  */
         List<Future<?>> tasks = numDocRange.stream()
                                            .map(i ->
                                                    executorService.submit(() ->
@@ -223,6 +252,7 @@ public class TfIdfVectorizer {
         executorService.shutdownNow();
     }
 
+    /* Called by asyncCalcTfIdfAndWrite to check the list of Futures for completion */
     private void waitForTasksToComplete(List<Future<?>> tasks) {
 
         try {
@@ -241,16 +271,11 @@ public class TfIdfVectorizer {
 
     }
 
-    private void writeTfIdfEntriesToMatrix(Map<String,Double> tfIdfEntries,
-                                           ConcurrentHashMap<String,Integer> presentWordsListIndex,
-                                           int row,double[][] resultMatrix) {
 
-        for(Map.Entry e : tfIdfEntries.entrySet()) {
-            resultMatrix[row][presentWordsListIndex.get(e.getKey())] = (double)e.getValue();
-        }
 
-    }
-
+    /* Returns a sparse (hash) representation of the non-zero entries in the
+       tf-idf matrix for one document.
+       tf-idf(word w in doc d) = |w occurrences in d| * idf(w) */
     private Map<String,Double> getTfIdfEntries(List<String> document,
                                                ConcurrentHashMap<String,IdfWord> idfHash) {
 
@@ -267,6 +292,17 @@ public class TfIdfVectorizer {
                                                     Double value = e.getValue() * idfHash.get(e.getKey()).idf;
                                                 })
                                         .collect(Collectors.toMap(e -> e.key, e -> e.value));
+
+    }
+
+    /* Writes the sparse (hash) representation of the non-zero entries to a matrix */
+    private void writeTfIdfEntriesToMatrix(Map<String,Double> tfIdfEntries,
+                                           ConcurrentHashMap<String,Integer> presentWordsListIndex,
+                                           int row,double[][] resultMatrix) {
+
+        for(Map.Entry e : tfIdfEntries.entrySet()) {
+            resultMatrix[row][presentWordsListIndex.get(e.getKey())] = (double)e.getValue();
+        }
 
     }
 
@@ -293,6 +329,8 @@ public class TfIdfVectorizer {
 
     }
 
+
+
     private void normalizeTfIdfMatrixRowWise(double[][] matrix) {
         int m = matrix.length;
         int n = matrix[0].length;
@@ -306,10 +344,6 @@ public class TfIdfVectorizer {
             rs = Math.sqrt(rs);
             for (int j = 0; j < n; j++) {
                 matrix[i][j] /= rs;
-            }
-            rs = 0;
-            for (int j = 0; j < n; j++) {
-                rs += matrix[i][j];
             }
             System.out.println("Row sum: " + rs);
         }
