@@ -12,6 +12,10 @@ import static org.junit.Assert.*;
 
 public class TestTfIdfVectorizer {
 
+/* ---------------------------
+   Tests
+ * --------------------------- */
+
     @Test
     public void testFolderOfTextFilesIsLoadedIntoList() {
 
@@ -37,16 +41,16 @@ public class TestTfIdfVectorizer {
     public void testListOfDocumentsIsSplit() {
 
         List<List<String>> expectedResult = Arrays.asList(
-                                                Arrays.asList("the", "brown", "cow",
-                                                        "sits","in","the","grass"
-                                                ),
-                                                Arrays.asList("the", "blue", "cow",
-                                                        "sits","in","the","grass"
-                                                ),
-                                                Arrays.asList("the", "blue", "cow",
-                                                        "sits","in","the","field"
-                                                )
-                                            );
+                Arrays.asList("the", "brown", "cow",
+                        "sits", "in", "the", "grass"
+                ),
+                Arrays.asList("the", "blue", "cow",
+                        "sits", "in", "the", "grass"
+                ),
+                Arrays.asList("the", "blue", "cow",
+                        "sits", "in", "the", "field"
+                )
+        );
 
 
         List<String> testInput = Arrays.asList(
@@ -281,7 +285,27 @@ public class TestTfIdfVectorizer {
         }
     }
 
+/* ---------------------------
+   Auxiliary Methods
+ * --------------------------- */
 
+    /* I wrote this to allow me to use reflection to call a private method with an arbitrary number of parameters */
+    private Object callTfIdfPrivateMethod(String methodName, TfIdfVectorizer vec, Object[] input, Class<?>[] inputType) {
+
+        Object result = null;
+
+        try {
+            Method testMethod = TfIdfVectorizer.class.getDeclaredMethod(methodName, inputType);
+            testMethod.setAccessible(true);
+            result = testMethod.invoke(vec, input);
+        }
+        catch (Exception e) {
+            System.out.println(e.toString());
+        }
+
+        return result;
+
+    }
 
     public List<List<String>> getMockTokens() {
 
@@ -310,23 +334,6 @@ public class TestTfIdfVectorizer {
 
         return (ConcurrentHashMap<String, IdfWord>)callTfIdfPrivateMethod("getNewIdfWordHash", vec,
                                                                           testInputArray, classArray);
-
-    }
-
-    private Object callTfIdfPrivateMethod(String methodName, TfIdfVectorizer vec, Object[] input, Class<?>[] inputType) {
-
-        Object result = null;
-
-        try {
-            Method testMethod = TfIdfVectorizer.class.getDeclaredMethod(methodName, inputType);
-            testMethod.setAccessible(true);
-            result = testMethod.invoke(vec, input);
-        }
-        catch (Exception e) {
-            System.out.println(e.toString());
-        }
-
-        return result;
 
     }
 

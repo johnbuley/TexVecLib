@@ -254,6 +254,7 @@ public class TfIdfVectorizer {
         waitForTasksToComplete(tasks);
 
 
+        /* Safe shutdown of ExecutorService */
         executorService.shutdownNow();
 
         boolean successfulShutdown = false;
