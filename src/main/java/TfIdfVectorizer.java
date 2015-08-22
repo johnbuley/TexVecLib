@@ -151,7 +151,7 @@ public class TfIdfVectorizer {
         Map<String,Integer> allWordCounts =
                 listOfDocDistinctWordSets.stream()
                                          .flatMap(Collection::stream)
-                                         .collect(Collectors.groupingBy(Function.identity(),
+                                         .collect(Collectors.groupingBy(e -> e,
                                                  Collectors.summingInt(e -> 1)));
 
 
@@ -242,14 +242,15 @@ public class TfIdfVectorizer {
         /* Passes a callable (as a lambda) to an ExecutorService for each document.  This callable
            calculates the non-zero entries for a particular document, and then writes these to a
            2-d array.  */
-        List<Future<?>> tasks = numDocRange.stream()
-                                           .map(i ->
-                                                   executorService.submit(() ->
-                                                           writeTfIdfEntriesToMatrix(
-                                                                   getTfIdfEntries(listOfDocuments.get(i), idfHash),
-                                                                   presentWordsListIndex, i,
-                                                                   resultMatrix)))
-                                           .collect(Collectors.toList());
+        List<Future<?>> tasks =
+                numDocRange.stream()
+                           .map(task_index ->
+                               executorService.submit(() ->
+                                       writeTfIdfEntriesToMatrix(
+                                           getTfIdfEntries(listOfDocuments.get(task_index), idfHash),
+                                                           presentWordsListIndex, task_index,
+                                                           resultMatrix)))
+                           .collect(Collectors.toList());
 
         waitForTasksToComplete(tasks);
 

@@ -13,6 +13,14 @@ public class UserTest {
 
     public static void main(String[] args) {
 
+
+        try {
+            System.in.read();
+        }
+        catch (Exception e) {
+            ;
+        }
+
         /* This is a quick test from the perspective of the user, loading 4 works of literature
            and calling fitTransform.  Using the Jama library, the user can produce a text
            cosine similarity matrix from the result by multiplying it by its transpose
