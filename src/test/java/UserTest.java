@@ -13,14 +13,6 @@ public class UserTest {
 
     public static void main(String[] args) {
 
-
-        try {
-            System.in.read();
-        }
-        catch (Exception e) {
-            ;
-        }
-
         /* This is a quick test from the perspective of the user, loading 4 works of literature
            and calling fitTransform.  Using the Jama library, the user can produce a text
            cosine similarity matrix from the result by multiplying it by its transpose
@@ -29,22 +21,13 @@ public class UserTest {
 
         TfIdfVectorizer vec = new TfIdfVectorizer();
 
-        List<String> documents = new ArrayList<>();
-        try {
-            documents.add(new String(Files.readAllBytes(Paths.get("./src/test/resources/twainhomer/huckfinn.txt"))));
-            documents.add(new String(Files.readAllBytes(Paths.get("./src/test/resources/twainhomer/sawyer.txt"))));
-            documents.add(new String(Files.readAllBytes(Paths.get("./src/test/resources/twainhomer/iliad.txt"))));
-            documents.add(new String(Files.readAllBytes(Paths.get("./src/test/resources/twainhomer/odyssey.txt"))));
-        }
-        catch (IOException e) {
-            System.err.println(e.toString());
-        }
+        TfIdfMatrix result = vec.fitTransform("./src/test/resources/twainhomer/",2,(float).8);
 
-        TfIdfMatrix result = vec.fitTransform(documents,2,(float).8);
 
         Matrix matrix = new Matrix(result.matrix);
 
         Matrix similarity = matrix.times(matrix.transpose());
+
 
         List<String> names = Arrays.asList("Huck Finn","Sawyer   ","Iliad    ","Odyssey  ");
 
@@ -52,11 +35,15 @@ public class UserTest {
 
         System.out.println();
         System.out.println("Similarity Score  [0,1]");
-        System.out.println("          Huck Finn   Sawyer   Iliad   Odyssey");
+        System.out.printf("                  ");
         for(int i = 0; i < 4; i++) {
-            System.out.printf(names.get(i));
+            System.out.printf(result.getDocAt(i) + "     ");
+        }
+        System.out.println();
+        for(int i = 0; i < 4; i++) {
+            System.out.printf(result.getDocAt(i));
             for (int j = 0; j < 4; j++) {
-                System.out.printf("     " + f.format(similarity.get(i, j)));
+                System.out.printf("           " + f.format(similarity.get(i, j)));
             }
             System.out.println(System.getProperty("line.separator"));
         }
