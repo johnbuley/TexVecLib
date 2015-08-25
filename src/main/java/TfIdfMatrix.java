@@ -5,34 +5,38 @@ import java.util.Map;
 public class TfIdfMatrix {
 
     public final double[][] matrix;
-    public final List<String> words;
+    public final Map<String,Integer> wordIndexByWord;
+    public final Map<Integer,String> wordByWordIndex;
     public final Map<String,Integer> docIndexByFilename;
     public final Map<Integer,String> docFilenameByIndex;
 
-    public TfIdfMatrix(double[][] matrix, List<String> words, Map<String,Integer> docIndex) {
+    public TfIdfMatrix(double[][] matrix, Map<String,Integer> words, Map<String,Integer> docIndex) {
 
         this.matrix = matrix;
-        this.words = words;
+        this.wordIndexByWord = words;
         this.docIndexByFilename = docIndex;
 
         /* Copy inversion of docIndexByFilename to docFilenameByIndex.
            Values of docIndexByFilename are distinct. */
         this.docFilenameByIndex = new HashMap<>();
-        ///////////////////////REMOVE
-        if (this.docIndexByFilename != null)
         this.docIndexByFilename.entrySet().forEach(entry ->
                 this.docFilenameByIndex.put(entry.getValue(),entry.getKey()));
 
+        /* Copy inversion of docIndexByFilename to docFilenameByIndex.
+           Values of docIndexByFilename are distinct. */
+        this.wordByWordIndex = new HashMap<>();
+        this.wordIndexByWord.entrySet().forEach(entry ->
+                this.wordByWordIndex.put(entry.getValue(),entry.getKey()));
     }
 
     /* Given a word, get index */
     public int indexOf(String word) {
-        return words.indexOf(word);
+        return wordIndexByWord.get(word);
     }
 
     /* Given an index, get word */
     public String wordAt(int i) {
-        return words.get(i);
+        return wordByWordIndex.get(i);
     }
 
     /* Given a filename, return index */

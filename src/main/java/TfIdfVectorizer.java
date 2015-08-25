@@ -23,12 +23,30 @@ public class TfIdfVectorizer {
    Defaults
  * -------------------------- */
 
-    private static final int maxStringLength = 64; /* chars */
-    private static final int ioBufferSize = 1024; /* bytes */
-    private static final int defaultDocSize = 1024; /* expected number of distinct words in a document */
-    private static final int defaultCorpusSize = 2048; /* expected number of distinct words
-                                                          among all documents */
-    private static final int numThreads = Math.max(Runtime.getRuntime().availableProcessors() - 1, 1);
+    private int maxStringLength = 64; /* chars */
+    private int ioBufferSize = 1024; /* bytes */
+    private int defaultDocSize = 1024; /* expected number of distinct words in a document */
+    private int defaultCorpusSize = 2048; /* expected number of distinct words among all documents */
+    private int numThreads = Math.max(Runtime.getRuntime().availableProcessors() - 1, 1);
+
+/* --------------------------
+   Get/Set
+ * -------------------------- */
+
+    public int getMaxStringLength() { return maxStringLength; }
+    public void setMaxStringLength(int value) { maxStringLength = value; }
+
+    public int getIoBufferSize() { return ioBufferSize; }
+    public void setIoBufferSize(int value) { ioBufferSize = value; }
+
+    public int getDefaultDocSize() { return defaultDocSize; }
+    public void setDefaultDocSize(int value) { defaultDocSize = value; }
+
+    public int getDefaultCorpusSize() { return defaultCorpusSize; }
+    public void setDefaultCorpusSize(int value) { defaultCorpusSize = value; }
+
+    public int getNumThreads() { return numThreads; }
+    public void setNumThreads(int value) { numThreads = value; }
 
 /* --------------------------
    Constructor
@@ -103,7 +121,7 @@ public class TfIdfVectorizer {
  * -------------------------- */
 
     /* Reads a file through a FileChannel, returns a sparse representation of the document */
-    public static SparseDoc sparsifyDoc(Path filePath) throws IOException {
+    public SparseDoc sparsifyDoc(Path filePath) throws IOException {
 
         byte[] concatBuf = new byte[maxStringLength];
 
@@ -233,18 +251,18 @@ public class TfIdfVectorizer {
 
         /* Filter the result of the previous section according to max- and min-allowable
            document frequency, then collect into a map where the value is the idf. */
-        Map<String, Double> wordCounts =
+        Map<String, Double> idfValues =
                 allWordCounts.entrySet().stream()
-                        .filter(e -> (e.getValue() >= minDf && e.getValue() <= maxDf))
-                        .collect(Collectors.toMap(Map.Entry::getKey,
-                                e -> Math.log((float) docCount / e.getValue())));
+                                        .filter(e -> (e.getValue() >= minDf && e.getValue() <= maxDf))
+                                        .collect(Collectors.toMap(Map.Entry::getKey,
+                                                e -> Math.log((float) docCount / e.getValue())));
 
 
         ConcurrentHashMap<String, Double> idfWordHash = new ConcurrentHashMap<>(defaultCorpusSize);
         int i = 0;
-        /* Copy elements of wordCounts to a ConcurrentHashMap, along with a
+        /* Copy elements of idfValues to a ConcurrentHashMap, along with a
            unique id that will be used to index the final tf-idf matrix. */
-        for(Map.Entry e : wordCounts.entrySet()) {
+        for(Map.Entry e : idfValues.entrySet()) {
             //idfWordHash.put((String)e.getKey(),new IdfWord(1,(double)e.getValue()));
             idfWordHash.put((String)e.getKey(),(double)e.getValue());
         }
@@ -276,7 +294,8 @@ public class TfIdfVectorizer {
     }
 
     /* Method called by executor threads to calculate document frequency in parallel. */
-    private void updateGlobalWordCount(ConcurrentHashMap<String,Integer> globalWordCounts, SparseDoc doc) {
+    private void updateGlobalWordCount(ConcurrentHashMap<String,Integer> globalWordCounts,
+                                       SparseDoc doc) {
 
         Integer currentCount;
 
@@ -311,12 +330,7 @@ public class TfIdfVectorizer {
            the documents.  In this way, the tf-idf matrix need only be as large
            as numDocs x |subset of vocabulary|. */
 
-        /* It may seem that the following two lines are somewhat inefficient, but
-           the hash index is best for the calculation of
-         */
-        List<String> presentWordsList = getPresentWordsList(docs, idfHash);
-
-        ConcurrentHashMap<String,Integer> presentWordsListIndex = getPresentWordsIndex(presentWordsList);
+        ConcurrentHashMap<String,Integer> presentWordsIndex = getPresentWordsIndex(docs, idfHash);
 
 
         /* Assign row indices to each doc key */
@@ -331,54 +345,44 @@ public class TfIdfVectorizer {
         /* Initialize result matrix */
         int numDocs = docs.size();
 
-        double[][] resultMatrix = new double[numDocs][presentWordsList.size()];
+        double[][] resultMatrix = new double[numDocs][presentWordsIndex.size()];
 
 
         /* This second pass calculates the tf-idf for each word, and writes
            it to the result matrix. */
-        asyncCalcTfIdfAndWrite(docs, docIndex, idfHash, presentWordsListIndex, resultMatrix);
+        asyncCalcTfIdfAndWrite(docs, docIndex, idfHash, presentWordsIndex, resultMatrix);
 
         normalizeTfIdfMatrixRowWise(resultMatrix);
 
 
-        return new TfIdfMatrix(resultMatrix,presentWordsList,docIndex);
+        return new TfIdfMatrix(resultMatrix,presentWordsIndex,docIndex);
     }
 
-    /* Returns the subset of the global training vocabulary that is present in the inputted documents. */
-    private List<String> getPresentWordsList(Map<String, SparseDoc> docs, ConcurrentHashMap<String, Double> idfHash) {
+    /* Returns a hashmap that is an index of the 'valid' words, which is the intersection of the
+       fit and transform corpora. */
+    private ConcurrentHashMap<String,Integer> getPresentWordsIndex(Map<String, SparseDoc> docs,
+                                                                   ConcurrentHashMap<String, Double> idfHash) {
 
-        Set<String> presentWordsHash = new HashSet<>(defaultCorpusSize);
+        ConcurrentHashMap<String,Integer> presentWordsIndex = new ConcurrentHashMap<>(defaultCorpusSize);
 
         /* Iterate through documents.  If a word in the doc set has a corresponding
-           precalculated idf, then add it to the set of valid words. */
+           precalculated idf, then add it to the set of valid words.
+
+           Elsewhere, I have parallelized tasks of this size, however it relies on
+           a shared integer for providing a unique index, and so would be hobbled
+           by synchronization. */
+        int i = 0;
         for(SparseDoc doc : docs.values()) {
             for(String word : doc.docHash.keySet()) {
-                if (!presentWordsHash.contains(word)) {
+                if (!presentWordsIndex.containsKey(word)) {
                     if (idfHash.containsKey(word)) {
-                        presentWordsHash.add(word);
+                        presentWordsIndex.put(word,i++);
                     }
                 }
             }
         }
 
-        return presentWordsHash.stream()
-                               .collect(Collectors.toList());
-
-    }
-
-    /* Returns a hashmap that is an index of the list returned by getPresentWordsList().  Hashmap
-       must allow asynchronous reads. */
-    private ConcurrentHashMap<String,Integer> getPresentWordsIndex(List<String> presentWordsList) {
-
-        ConcurrentHashMap<String,Integer> presentWordsListIndex =
-                new ConcurrentHashMap<>(presentWordsList.size(),(float).75,16);
-
-        int c = 0;
-        for(String word : presentWordsList) {
-            presentWordsListIndex.put(word,c++);
-        }
-
-        return presentWordsListIndex;
+        return presentWordsIndex;
 
     }
 
@@ -399,7 +403,8 @@ public class TfIdfVectorizer {
                                .map(entry ->
                                        executorService.submit(() ->
                                                writeTfIdfEntriesToMatrix(
-                                                       getTfIdfEntries(entry.getValue().docHash, idfHash),
+                                                       getTfIdfEntries(entry.getValue().docHash,
+                                                                       idfHash),
                                                        presentWordsListIndex,
                                                        docIndex.get(entry.getKey()),
                                                        resultMatrix)))

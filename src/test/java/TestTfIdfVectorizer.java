@@ -204,40 +204,17 @@ public class TestTfIdfVectorizer {
     }
 
     @Test
-    public void test_getPresentWordsList() {
-
-        Map<String,SparseDoc> testDocs = getMockDocs();
-
-        List<String> expectedResult = Arrays.asList("blue", "brown", "grass", "field");
-
-        TfIdfVectorizer vec = new TfIdfVectorizer();
-
-        ConcurrentHashMap<String,Double> mockIdfHash = getMockIdfHash();
-
-        Object[] testInputArray = { testDocs,mockIdfHash };
-        Class<?>[] testClassArray = { Map.class,ConcurrentHashMap.class };
-
-        List<String> producedResult = (List<String>)callTfIdfPrivateMethod("getPresentWordsList", vec,
-                testInputArray, testClassArray);
-
-
-        /* Assert that the results are of the same size, and that all elements
-        of expectedResult (which are distinct) are contained by producedResult. */
-        assertEquals(expectedResult.size(), producedResult.size());
-
-        expectedResult.forEach(e -> assertTrue(producedResult.contains(e)));
-
-    }
-
-    @Test
     public void test_getIndexOfPresentWordsList() {
 
-        List<String> testInput = Arrays.asList("blue", "brown", "grass", "field");
+        List<String> testResult = Arrays.asList("blue", "brown", "grass", "field");
+
+        ConcurrentHashMap<String,Double> mockIdfHash = getMockIdfHash();
+        Map<String,SparseDoc> testDocs = getMockDocs();
 
         TfIdfVectorizer vec = new TfIdfVectorizer();
 
-        Object[] testInputArray = { testInput };
-        Class<?>[] testClassArray = {List.class};
+        Object[] testInputArray = { testDocs, mockIdfHash };
+        Class<?>[] testClassArray = { Map.class, ConcurrentHashMap.class };
 
         ConcurrentHashMap<String,Integer> producedResult =
                 (ConcurrentHashMap<String,Integer>)callTfIdfPrivateMethod("getPresentWordsIndex", vec,
@@ -245,9 +222,9 @@ public class TestTfIdfVectorizer {
 
         /* Assert that the result is of the same size as the input, and that all
         elements of testInput (which are distinct) are contained by producedResult. */
-        assertEquals(testInput.size(), producedResult.size());
+        assertEquals(testResult.size(), producedResult.size());
 
-        testInput.forEach(e -> assertTrue(producedResult.containsKey(e)));
+        testResult.forEach(e -> assertTrue(producedResult.containsKey(e)));
 
         List<Integer> producedIndices =
                 producedResult.entrySet().stream()
@@ -277,7 +254,35 @@ public class TestTfIdfVectorizer {
 
         TfIdfMatrix producedResult =
                 (TfIdfMatrix)callTfIdfPrivateMethod("getTfIdfMatrix", vec,
-                        testInputArray, testClassArray);
+                                                    testInputArray, testClassArray);
+
+        HashMap<String,double[]> expectedResults = new HashMap<>();
+
+        double[] array1 = {.8047,0,0};
+        expectedResults.put("brown",array1);
+        double[] array2 = {0,.7071,.5937};
+        expectedResults.put("blue", array2);
+        double[] array3 = {.5937,.7071,0};
+        expectedResults.put("grass", array3);
+        double[] array4 = {0,0,.8046};
+        expectedResults.put("field", array4);
+
+        /* Assert that tf-idf values are equal */
+        expectedResults.entrySet().forEach(
+                e -> {
+                    assertEquals(
+                      producedResult.matrix[producedResult.getDocIndex("docA.txt")][producedResult.indexOf(e.getKey())],
+                      e.getValue()[0],
+                      .001);
+                    assertEquals(
+                      producedResult.matrix[producedResult.getDocIndex("docB.txt")][producedResult.indexOf(e.getKey())],
+                      e.getValue()[1],
+                      .001);
+                    assertEquals(
+                      producedResult.matrix[producedResult.getDocIndex("docC.txt")][producedResult.indexOf(e.getKey())],
+                      e.getValue()[2],
+                      .001);
+                });
 
     }
 
