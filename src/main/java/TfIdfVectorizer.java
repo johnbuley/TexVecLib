@@ -2,10 +2,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.file.DirectoryStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
@@ -19,15 +16,17 @@ public class TfIdfVectorizer {
     private boolean initialized;
     private ConcurrentHashMap<String,Double> idfHash;
 
+
 /* --------------------------
    Defaults
  * -------------------------- */
 
     private int maxStringLength = 64; /* chars */
-    private int ioBufferSize = 1024; /* bytes */
-    private int defaultDocSize = 1024; /* expected number of distinct words in a document */
-    private int defaultCorpusSize = 2048; /* expected number of distinct words among all documents */
+    private int ioBufferSize = 4096; /* bytes */
+    private int defaultDocSize = 4096; /* expected number of distinct words in a document */
+    private int defaultCorpusSize = 8192; /* expected number of distinct words among all documents */
     private int numThreads = Math.max(Runtime.getRuntime().availableProcessors() - 1, 1);
+
 
 /* --------------------------
    Get/Set
@@ -48,6 +47,7 @@ public class TfIdfVectorizer {
     public int getNumThreads() { return numThreads; }
     public void setNumThreads(int value) { numThreads = value; }
 
+
 /* --------------------------
    Constructor
  * -------------------------- */
@@ -58,12 +58,13 @@ public class TfIdfVectorizer {
 
     }
 
+
 /* --------------------------
    Public Methods
  * -------------------------- */
 
     /* Base method for training a tf-idf model */
-    public void fit(Map<String,SparseDoc> docs, int minDf, float maxDfRatio) {
+    public void fit(Map<String,SparseDoc> docs, int minDf, double maxDfRatio) {
 
         this.idfHash = this.getNewIdfWordHash(docs, minDf, maxDfRatio);
         this.initialized = true;
@@ -83,7 +84,7 @@ public class TfIdfVectorizer {
     }
 
     /* Base method for fitting and transforming in one step */
-    public TfIdfMatrix fitTransform(Map<String,SparseDoc> docs, int minDf, float maxDfRatio) {
+    public TfIdfMatrix fitTransform(Map<String,SparseDoc> docs, int minDf, double maxDfRatio) {
 
         this.fit(docs,minDf,maxDfRatio);
         return transform(docs);
@@ -91,7 +92,7 @@ public class TfIdfVectorizer {
     }
 
     /* This is an overloaded method for handling folder inputs */
-    public void fit(String inputFolder, int minDf, float maxDfRatio) {
+    public void fit(String inputFolder, int minDf, double maxDfRatio) {
 
         /* Call 'base' method now that input is formatted */
         this.fit(this.processInputFolder(inputFolder), minDf, maxDfRatio);
@@ -106,7 +107,7 @@ public class TfIdfVectorizer {
     }
 
     /* This is an overloaded method for handling folder inputs */
-    public TfIdfMatrix fitTransform(String inputFolder, int minDf, float maxDfRatio) {
+    public TfIdfMatrix fitTransform(String inputFolder, int minDf, double maxDfRatio) {
 
         Map<String,SparseDoc> input = this.processInputFolder(inputFolder);
 
@@ -120,19 +121,71 @@ public class TfIdfVectorizer {
    Ingestion
  * -------------------------- */
 
+    /* Finds .txt files in a given folder and collects them into a list of strings */
+    private Map<String,SparseDoc> processInputFolder(String folderName) {
+
+        Path inputPath = Paths.get(folderName);
+
+        List<SparseDoc> results = new ArrayList<>();
+
+        if (Files.exists(inputPath)) {
+            try {
+                DirectoryStream<Path> stream = Files.newDirectoryStream(inputPath, "*.txt");
+                /*  Iterate through files in input folder, transform each to string,
+                *   and add each to list of document strings. */
+                for (Path filePath : stream) {
+                    try {
+                        results.add(sparsifyDoc(filePath));
+                    }
+                    catch (Exception e) {
+                        System.err.println("Error reading file: " + filePath.toString() +
+                                           " " + e.toString());
+                    }
+                }
+            }
+            catch (IOException e) { System.err.println("Error reading input folder" + e.toString()); }
+        }
+        else {
+            System.err.println("Not a valid path.");
+            return null;
+        }
+
+        /* Allocates for the number of documents */
+        Map<String,SparseDoc> docs = new HashMap<>(results.size());
+
+        results.forEach(doc -> docs.put(doc.filename, doc));
+
+        return docs;
+    }
+
     /* Reads a file through a FileChannel, returns a sparse representation of the document */
     public SparseDoc sparsifyDoc(Path filePath) throws IOException {
-
-        byte[] concatBuf = new byte[maxStringLength];
 
         Map<String, Integer> doc = new HashMap<>(defaultDocSize);
 
         ByteBuffer buf = ByteBuffer.allocate(ioBufferSize);
+        byte[] concatBuf = new byte[maxStringLength];
 
+        /* There seems to be a debate over the performance of synchronous NIO vs IO.  I worked
+           with NIO because I was experimenting with parallelizing ingestion. */
         FileChannel fileChannel = (new FileInputStream(filePath.toString())).getChannel();
 
         int bytesRead;
+        /* The integer pointer is only necessary to allow the buffer pointer to
+           be reset within addWordToDoc.  If this behavior were done in-line, then
+           an int would be used. */
         IntegerPtr bufPtr = new IntegerPtr(0);
+        /* A performance boost could be gained from generating a string
+           directly from the FileChannel buffer, rather than a separate one,
+           but that would be lossy in cases where a token spanned two separate
+           FileChannel reads.  In this case, a token is only lost if it
+           exceeds the size of the concatenation buffer.
+           A small improvement I thought of late was the following: if I'm processing
+           in place, without copying, and the last n bytes in the read buffer are part
+           of an unfinished token, then on the next read only ioBufferSize-n bytes,
+           preserving the first part of the token at the end of the read buffer, which
+           can be joined with the second part at the beginning of the read buffer.
+           Only in this case would I copy to a separate concat buffer. */
         while ((bytesRead = fileChannel.read(buf)) != -1) {
 
             for (int i = 0; i < bytesRead; i++) {
@@ -141,7 +194,6 @@ public class TfIdfVectorizer {
                 if /* lower-case letter */ ((c >= 97) & (c <= 122)) {
                     concatBuf[bufPtr.value++] = c;
                 }
-
                 else if /* upper-case letter */ ((c >= 65) & (c <= 90)) {
                     concatBuf[bufPtr.value++] = (byte) (c + 32);
                 }
@@ -151,7 +203,7 @@ public class TfIdfVectorizer {
                     }
                 }
                 /* Check that string concat buffer cannot overflow on next iteration.
-                   If so, write the current contents of the buffer as a word and reset. */
+                   If so, write the current contents of the buffer as a token and reset. */
                 if (bufPtr.value == maxStringLength-1) {
                     addWordToDoc(doc,concatBuf,bufPtr);
                 }
@@ -164,62 +216,9 @@ public class TfIdfVectorizer {
 
     }
 
-    /* Finds .txt files in a given folder and collects them into a list of strings */
-    private Map<String,SparseDoc> processInputFolder(String folderName) {
-
-        Path inputPath = Paths.get(folderName);
-
-        ExecutorService executorService = Executors.newFixedThreadPool(numThreads);
-
-        List<Future<SparseDoc>> tasks = new ArrayList<>();
-
-        if (Files.exists(inputPath)) {
-            try {
-                DirectoryStream<Path> stream = Files.newDirectoryStream(inputPath, "*.txt");
-
-                /*  Iterate through files in input folder, transform each to string,
-                *   and add each to list of document strings. */
-                for (Path filePath : stream) {
-                    try {
-                        tasks.add(executorService.submit(() -> sparsifyDoc(filePath)));
-                    }
-                    catch (Exception e) { System.err.println("Error reading file: " + filePath.toString()); }
-                }
-            }
-            catch (IOException e) { System.err.println("Error reading input folder" + e.toString()); }
-        }
-        else { System.err.println("Not a valid path."); }
-
-
-        /* Allocates for the number of documents */
-        Map<String,SparseDoc> docs = new HashMap<>(tasks.size());
-
-        /* Iterates through the list of futures.  As a future is completed, the result
-           is added to the global map and the task is removed from the list. */
-        while(tasks.size() > 0) {
-
-            Iterator<Future<SparseDoc>> iterator = tasks.iterator();
-            while (iterator.hasNext()) {
-                Future<SparseDoc> task = iterator.next();
-                try {
-                    if (task.isDone()) {
-                        docs.put(task.get().filename, task.get());
-                        iterator.remove();
-                    }
-                }
-                catch (Exception e) { System.err.println("Future exception"); }
-            }
-
-        }
-
-        safeExecutorServiceShutdown(executorService);
-
-        return docs;
-    }
-
     /* This behavior was extracted from sparsifyDoc for readability under the assumption/hope
-       that the compiler will inline it */
-    private static void addWordToDoc(Map<String,Integer> doc, byte[] concatBuf, IntegerPtr bufPtr) {
+   that the compiler will inline it */
+    private void addWordToDoc(Map<String,Integer> doc, byte[] concatBuf, IntegerPtr bufPtr) {
 
         String word = new String(concatBuf, 0, bufPtr.value);
         bufPtr.value = 0;
@@ -240,9 +239,9 @@ public class TfIdfVectorizer {
 
     /* Top-level method for returning a collection of <word,idf> pairs */
     private ConcurrentHashMap<String,Double> getNewIdfWordHash(Map<String, SparseDoc> docs,
-                                                               int minDf, float maxDfRatio) {
+                                                               int minDf, double maxDfRatio) {
 
-        ConcurrentHashMap<String,Integer> allWordCounts = getGlobalWordCount(docs);
+        Map<String,Integer> wordDocFreqs = getGlobalWordDocFreq(docs);
 
         int docCount = docs.size();
         /* Calculate max-allowable document frequency based on maxDfRatio and number of docs */
@@ -252,18 +251,15 @@ public class TfIdfVectorizer {
         /* Filter the result of the previous section according to max- and min-allowable
            document frequency, then collect into a map where the value is the idf. */
         Map<String, Double> idfValues =
-                allWordCounts.entrySet().stream()
+                wordDocFreqs.entrySet().stream()
                                         .filter(e -> (e.getValue() >= minDf && e.getValue() <= maxDf))
                                         .collect(Collectors.toMap(Map.Entry::getKey,
                                                 e -> Math.log((float) docCount / e.getValue())));
 
 
         ConcurrentHashMap<String, Double> idfWordHash = new ConcurrentHashMap<>(defaultCorpusSize);
-        int i = 0;
-        /* Copy elements of idfValues to a ConcurrentHashMap, along with a
-           unique id that will be used to index the final tf-idf matrix. */
+        /* Copy elements of idfValues to a ConcurrentHashMap, keyed by the filename. */
         for(Map.Entry e : idfValues.entrySet()) {
-            //idfWordHash.put((String)e.getKey(),new IdfWord(1,(double)e.getValue()));
             idfWordHash.put((String)e.getKey(),(double)e.getValue());
         }
 
@@ -272,43 +268,40 @@ public class TfIdfVectorizer {
 
     /* Calculate document frequency
        df(word) = |{docs d | d contains word}| */
-    private ConcurrentHashMap<String,Integer> getGlobalWordCount(Map<String,SparseDoc> docs) {
+    private Map<String,Integer> getGlobalWordDocFreq(Map<String, SparseDoc> docs) {
 
-        ConcurrentHashMap<String,Integer> allWordCounts =
-                new ConcurrentHashMap<>(defaultCorpusSize,(float).75,numThreads);
+        /* This section was parallelized, but I caught an error caused by the omission of
+         * a synchronization point.  So, as described in Discussion 2, this should be joined
+         * with the ingestion process, because the synchronization will overwhelm the
+         * performance boost, but for now this is a fix. */
 
-        List<Future<?>> tasks = new ArrayList<>(docs.size());
+        Map<String,Integer>globalWordDocFreqs =
+                new HashMap<>(defaultCorpusSize);
 
-        ExecutorService executorService = Executors.newFixedThreadPool(numThreads);
+        docs.entrySet().forEach(entry -> updateGlobalWordDocFreqs(globalWordDocFreqs, entry.getValue()));
 
-        docs.entrySet().forEach(entry ->
-                tasks.add(executorService.submit(() ->
-                        updateGlobalWordCount(allWordCounts, entry.getValue()))));
-
-        waitForTasksToComplete(tasks);
-
-        safeExecutorServiceShutdown(executorService);
-
-        return allWordCounts;
+        return globalWordDocFreqs;
 
     }
 
-    /* Method called by executor threads to calculate document frequency in parallel. */
-    private void updateGlobalWordCount(ConcurrentHashMap<String,Integer> globalWordCounts,
-                                       SparseDoc doc) {
+    /* Method called by executor threads to calculate document frequency in parallel.
+       Method no longer needed when this functionality is joined with ingestion.  */
+    private void updateGlobalWordDocFreqs(Map<String, Integer> globalWordDocFreqs,
+                                          SparseDoc doc) {
 
         Integer currentCount;
 
         for(HashMap.Entry entry : doc.docHash.entrySet()) {
 
+            /* Below comment only relevant when this method was called by multiple threads. */
             /* By assigning either the desired value or null to a variable and then checking
                if it's null, I only need to touch the shared hash twice to add/update a value */
-            currentCount = globalWordCounts.get(entry.getKey());
+            currentCount = globalWordDocFreqs.get(entry.getKey());
             if (currentCount != null) {
-                globalWordCounts.put((String)entry.getKey(),currentCount+1);
+                globalWordDocFreqs.put((String) entry.getKey(), currentCount + 1);
             }
             else {
-                globalWordCounts.put((String)entry.getKey(),1);
+                globalWordDocFreqs.put((String) entry.getKey(), 1);
             }
 
         }
@@ -329,7 +322,6 @@ public class TfIdfVectorizer {
            determines the subset of the global vocabulary that is present in
            the documents.  In this way, the tf-idf matrix need only be as large
            as numDocs x |subset of vocabulary|. */
-
         ConcurrentHashMap<String,Integer> presentWordsIndex = getPresentWordsIndex(docs, idfHash);
 
 
@@ -368,7 +360,7 @@ public class TfIdfVectorizer {
         /* Iterate through documents.  If a word in the doc set has a corresponding
            precalculated idf, then add it to the set of valid words.
 
-           Elsewhere, I have parallelized tasks of this size, however it relies on
+           I would try to parallelize this computation, but it relies on
            a shared integer for providing a unique index, and so would be hobbled
            by synchronization. */
         int i = 0;

@@ -1,13 +1,6 @@
 import Jama.*;
 
-import javax.imageio.IIOException;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 
 public class UserTest {
 
@@ -21,18 +14,22 @@ public class UserTest {
 
         TfIdfVectorizer vec = new TfIdfVectorizer();
 
-        TfIdfMatrix result = vec.fitTransform("./src/test/resources/twainhomer/",2,(float).8);
+        long startTime = System.nanoTime();
 
+        TfIdfMatrix result = vec.fitTransform("./src/test/resources/twainhomer/", 2, .8);
+
+        long endTime = System.nanoTime();
 
         Matrix matrix = new Matrix(result.matrix);
 
+        /* Get similarity matrix */
         Matrix similarity = matrix.times(matrix.transpose());
 
 
-        List<String> names = Arrays.asList("Huck Finn","Sawyer   ","Iliad    ","Odyssey  ");
-
+        /* Print output. */
         DecimalFormat f = new DecimalFormat("#0.00");
 
+        System.out.println("fitTransform time : " + f.format((double)(endTime - startTime)/1000000.) + " ms");
         System.out.println();
         System.out.println("Similarity Score  [0,1]");
         System.out.printf("                  ");

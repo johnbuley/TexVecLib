@@ -29,66 +29,56 @@ Components
 ---------------------------------------------------------------
 class TfIdfVectorizer
 
-  public void fit(List<String>, int, float)
+  public void fit(String, int, float)
   	      	
 		Trains the model.
 	
-		List<String>  list of documents
-		int	      min document frequency
-			       i.e., the minimum number of documents 
-			       in which a word must appear to be 
-			       included in training set
-		float	      max document frequency ratio
-			       the max document frequency expressed
-			       as a fraction of the total number
-			       of training documents
+		String  	path to folder of documents
+		int	      	min document frequency
+			       	 i.e., the minimum number of documents 
+			       	 in which a word must appear to be 
+			       	 included in training set
+		float	      	max document frequency ratio
+			       	 the max document frequency expressed
+			       	 as a fraction of the total number
+			       	 of training documents
 
 
-  public TfIdfMatrix transform(List<String>)
+  public TfIdfMatrix transform(Map<String,)
 
-  	 	Generates a TfIdfMatrix based on the trained
+ 		Generates a TfIdfMatrix based on the trained
 		model.
 
-  	 	List<String>  list of documents
+ 		String  	path to folder of documents
 
 
   public TfIdfMatrix fitTransform(List<String>, int, float)
 
   	 	Performs both fit and transform steps.
 
-  	 	List<String>  list of documents
-		int	      min document frequency
-			       i.e., the minimum number of documents
-			       in which a word must appear to be
-			       included in training set
-		float	      max document frequency ratio
-			       the max document frequency expressed
-			       as a fraction of the toal number
-			       of training documents
+  	 	String  	path to folder of documents
+		int	      	min document frequency
+			       	 i.e., the minimum number of documents
+			       	 in which a word must appear to be
+			       	 included in training set
+		float	      	max document frequency ratio
+			       	 the max document frequency expressed
+			       	 as a fraction of the toal number
+			       	 of training documents
+
+Library also offers overloaded methods for the above, accepting
+Map<String,SparseDoc> instead of String.
 
 
 class TfIdfMatrix
 
   public final double[][] matrix    a tf-idf matrix
-  
-  public final List<String> words   list of words acting as an index to
-  	       		      	    the columns of the matrix
 
   public int indexOf(String)	    returns the column index of a word
 
   public String wordAt(int)	    returns the word corresponding to
   	 			    a column
 
+  public int getDocIndex(String)    returns the row index of a doc
 
-Known Issues
--------------------------------------------------------------------
-The library also contains overloaded methods for fit(), transform(),
-and fitTransform() that accept a folder path instead of a list
-of documents, allowing the user to process an entire folder.  However,
-the library does not return an index to the documents, and as they
-are read in an indeterminate order, this is of limited value until
-fixed.
-
-The fit() and fitTransform() methods should be refactored to accept
-a double rather than a float, because if you try to pass it a literal
-you need to cast it first.
+  public String getDocAt(int)	    returns doc at row index

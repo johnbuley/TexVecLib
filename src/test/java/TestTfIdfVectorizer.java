@@ -22,7 +22,7 @@ public class TestTfIdfVectorizer {
 
         Map<String,Integer> expectedDocHash = new HashMap<>();
         expectedDocHash.put("the",2); expectedDocHash.put("brown",1); expectedDocHash.put("cow",1);
-        expectedDocHash.put("sits",1); expectedDocHash.put("in",1); expectedDocHash.put("grass",2);
+        expectedDocHash.put("sits", 1); expectedDocHash.put("in", 1); expectedDocHash.put("grass", 2);
 
         SparseDoc expectedResult = new SparseDoc("docA.txt",expectedDocHash);
 
@@ -36,6 +36,8 @@ public class TestTfIdfVectorizer {
 
         assertEquals(producedResult.docHash.size(),expectedResult.docHash.size());
 
+        /* If the EntrySets are the same size, then only need to check that there is match
+           between each entry in the expectedResult and an entry in the producedResult. */
         expectedResult.docHash.entrySet().forEach(entry ->
                 assertEquals(entry.getValue(),
                         producedResult.docHash.get(entry.getKey())));
@@ -58,45 +60,47 @@ public class TestTfIdfVectorizer {
 
         assertEquals(expectedResult.size(),producedResult.size());
 
+        /* Since sparsifyDoc is tested elsewhere, this just checks that the expected file keys
+           are present, and the value of each is a SparseDoc. */
         expectedResult.forEach(entry -> {
-            assertTrue(producedResult.containsKey((String) entry));
-            assertTrue(producedResult.get((String) entry) instanceof SparseDoc);
+            assertTrue(producedResult.containsKey(entry));
+            assertTrue(producedResult.get(entry) != null);
         });
 
     }
 
-    @Test
+    @Test /* This test is troubled, but works with a manual change described below. */
     public void test_addWordToDoc() {
 
-        Map<String,Integer> testDoc = new HashMap<String,Integer>();
+        /* Had trouble passing byte[].class as an argument type to *.class.getDeclaredMethod().
+           So to test, I make the method public temporarily, otherwise leaving the below commented. */
+
+/*        Map<String,Integer> testDoc = new HashMap<String,Integer>();
         byte[] testConcatBuf = new byte[8];
 
         testConcatBuf[0] = (char) 't'; testConcatBuf[1] = (char) 'h'; testConcatBuf[2] = (char) 'e';
 
         TfIdfVectorizer vec = new TfIdfVectorizer();
 
-        /* Had trouble passing byte[].class as an argument type to *.class.getDeclaredMethod().
-           So to test, I make the method public temporarily, otherwise leaving this commented. */
+        IntegerPtr bufPtr = new IntegerPtr(3);
+        vec.addWordToDoc(testDoc,testConcatBuf,bufPtr);
+        bufPtr.value = 3;
+        vec.addWordToDoc(testDoc,testConcatBuf,bufPtr);
+
+        assertEquals((int)testDoc.get("the"),2);
+
+        // Error:
 
         //Object[] testInputArray = { testDoc, testConcatBuf, 3 };
         //Class<?>[] testClassArray = { testDoc.getClass(), byte[].class, int.class };
 
-        //callTfIdfPrivateMethod("addWordToDoc", vec, testInputArray, testClassArray);
-
         //Map<String,SparseDoc> producedResult =
-        //(Map<String,SparseDoc>)callTfIdfPrivateMethod("addWordToDoc", vec, testInputArray, testClassArray);
-
-        //vec.addWordToDoc(testDoc,testConcatBuf,3);
-        //vec.addWordToDoc(testDoc,testConcatBuf,3);
-
-        //assertEquals((int)testDoc.get("the"),2);
+                //(Map<String,SparseDoc>)callTfIdfPrivateMethod("addWordToDoc", vec, testInputArray, testClassArray);*/
 
     }
 
     @Test
     public void test_getNewIdfWordHash() {
-
-        List<List<String>> testInput = getMockTokens();
 
         Map<String,SparseDoc> testDocs = getMockDocs();
 
@@ -106,12 +110,13 @@ public class TestTfIdfVectorizer {
 
         TfIdfVectorizer vec = new TfIdfVectorizer();
 
-        Object[] testInputArray = {testDocs,1,(float).7};
-        Class<?>[] classArray = {Map.class,int.class,float.class};
+        Object[] testInputArray = {testDocs,1,.7};
+        Class<?>[] classArray = {Map.class,int.class,double.class};
 
         ConcurrentHashMap<String, Double> producedResult =
                 (ConcurrentHashMap<String, Double>)callTfIdfPrivateMethod("getNewIdfWordHash", vec,
-                        testInputArray, classArray);
+                                                                          testInputArray, classArray);
+
 
         /* Check that method constructed a hashmap with the correct keys */
         assertEquals(producedResult.keySet(), expectedIdfValuesHash.keySet());
@@ -123,8 +128,8 @@ public class TestTfIdfVectorizer {
 
     }
 
-    @Test // Also tests updateGlobalWordCount, an extracted method.
-    public void test_getGlobalWordCount() {
+    @Test // Also tests updateGlobalWordDocFreq(). */
+    public void test_getGlobalWordDocFreq() {
 
         Map<String,Integer> expectedResult = new HashMap<String,Integer>();
         expectedResult.put("the", 3);expectedResult.put("brown",1);expectedResult.put("cow",3);
@@ -138,15 +143,17 @@ public class TestTfIdfVectorizer {
         Object[] testInputArray = { testDocs };
         Class<?>[] classArray = { Map.class };
 
-        ConcurrentHashMap<String, Integer> producedResult =
-                (ConcurrentHashMap<String, Integer>)callTfIdfPrivateMethod("getGlobalWordCount", vec,
-                        testInputArray, classArray);
+        Map<String, Integer> producedResult =
+                (Map<String, Integer>)callTfIdfPrivateMethod("getGlobalWordDocFreq", vec,
+                                                             testInputArray, classArray);
 
+
+        /* Check that the size of the results and their value sets match */
         assertEquals(expectedResult.size(),producedResult.size());
 
         expectedResult.entrySet().forEach(entry ->
                 assertEquals(entry.getValue(),
-                        producedResult.get(entry.getKey())));
+                             producedResult.get(entry.getKey())));
 
     }
 
@@ -167,8 +174,10 @@ public class TestTfIdfVectorizer {
         Map<String,Double> producedResult =
                 (Map<String,Double>)callTfIdfPrivateMethod("getTfIdfEntries", vec,testInputArray, testClassArray);
 
+
         /* Check that the size of the results and their value sets match */
         assertEquals(producedResult.size(), expectedResult.size());
+
         expectedResult.entrySet().forEach(e -> assertEquals((double) e.getValue(),
                 producedResult.get(e.getKey()),
                 .001));
@@ -191,7 +200,7 @@ public class TestTfIdfVectorizer {
         testPresentWordsIndex.put("brown",3);
 
         Object[] testInputArray = {testTfIdfEntries,testPresentWordsIndex,0,testMatrix};
-        Class<?>[] testClassArray = {Map.class,ConcurrentHashMap.class, int.class, testMatrix.getClass()};
+        Class<?>[] testClassArray = {Map.class, ConcurrentHashMap.class, int.class, testMatrix.getClass()};
 
         callTfIdfPrivateMethod("writeTfIdfEntriesToMatrix", vec, testInputArray, testClassArray);
 
@@ -234,9 +243,10 @@ public class TestTfIdfVectorizer {
         producedIndices.sort((a, b) -> a.compareTo(b));
 
         /* Assert that the indices are distinct and span the desired range */
-        for(int i : producedIndices) {
-            assertEquals((int)producedIndices.get(i),i++);
+        for (int i = 0; i < producedIndices.size(); i++) {
+            assertEquals((int)producedIndices.get(i),i);
         }
+
     }
 
     @Test
@@ -244,8 +254,6 @@ public class TestTfIdfVectorizer {
 
         ConcurrentHashMap<String,Double> testIdfHash = getMockIdfHash();
         Map<String,SparseDoc> testDocs = getMockDocs();
-
-        Map<String,Map<String,Integer>> expectedResult = new HashMap<>();
 
         TfIdfVectorizer vec = new TfIdfVectorizer();
 
@@ -256,19 +264,19 @@ public class TestTfIdfVectorizer {
                 (TfIdfMatrix)callTfIdfPrivateMethod("getTfIdfMatrix", vec,
                                                     testInputArray, testClassArray);
 
-        HashMap<String,double[]> expectedResults = new HashMap<>();
+        HashMap<String,double[]> expectedResult = new HashMap<>();
 
         double[] array1 = {.8047,0,0};
-        expectedResults.put("brown",array1);
+        expectedResult.put("brown", array1);
         double[] array2 = {0,.7071,.5937};
-        expectedResults.put("blue", array2);
+        expectedResult.put("blue", array2);
         double[] array3 = {.5937,.7071,0};
-        expectedResults.put("grass", array3);
+        expectedResult.put("grass", array3);
         double[] array4 = {0,0,.8046};
-        expectedResults.put("field", array4);
+        expectedResult.put("field", array4);
 
         /* Assert that tf-idf values are equal */
-        expectedResults.entrySet().forEach(
+        expectedResult.entrySet().forEach(
                 e -> {
                     assertEquals(
                       producedResult.matrix[producedResult.getDocIndex("docA.txt")][producedResult.indexOf(e.getKey())],
@@ -308,23 +316,14 @@ public class TestTfIdfVectorizer {
 
     }
 
-    public List<List<String>> getMockTokens() {
-
-        return Arrays.asList(
-                Arrays.asList("the", "brown", "cow", "sits","in","the","grass"),
-                Arrays.asList("the", "blue", "cow", "sits","in","the","grass"),
-                Arrays.asList("the", "blue", "cow", "sits","in","the","field"));
-
-    }
-
     public ConcurrentHashMap<String,Double> getMockIdfHash() {
 
         Map<String,SparseDoc> testInput = getMockDocs();
 
         TfIdfVectorizer vec = new TfIdfVectorizer();
 
-        Object[] testInputArray = {testInput,1,(float).7};
-        Class<?>[] classArray = {Map.class,int.class,float.class};
+        Object[] testInputArray = {testInput,1,.7};
+        Class<?>[] classArray = {Map.class,int.class,double.class};
 
         return (ConcurrentHashMap<String, Double>)callTfIdfPrivateMethod("getNewIdfWordHash", vec,
                                                                          testInputArray, classArray);

@@ -1,0 +1,154 @@
+I focused on the problem of processing a large number of
+documents, rather than strings generated within an application.
+This problem calls more for a distributed solution, but 
+for the sake of exercise I tackled it here.  The optimal 
+solution described at the end should (I haven't tried it yet) 
+be able to handle a document set of 10-20 gB, assuming a 
+heap limit of ~2gB.
+
+
+Attempts:
+
+Wherever possible, I tried to reduce heap allocation.  I was
+able to cut out some of the obvious inefficiencies, and
+allocate the larger collections at initialization, but there
+is a fundamental barrier posed by using collections at
+all, which I address in the optimal solution section.
+
+I also tried introducing further parallelization.  In the case
+of I/O, my understanding is that the file read itself cannot
+be done in parallel.  Also, the ingestion needs to be near-lossless
+(the exception is when a token exceeds the max string length).
+This requires that the buffered file reads be done
+sequentially and also requires a shared state, ruling out both master/
+worker and also using CompletableFutures with an AsyncFileChannel.
+
+The best idea I could come up with was a process with a
+text-processing thread and two I/O threads.  While the text
+thread takes the result of I/O 1 and processes it, I/O 2 reads.
+Then text thread processes result of I/O 2 while I/O 1 reads,
+and so on.  I implemented this and it was, if anything, slightly 
+slower than serial, probably because of the overhead of checking for
+results.  So this version performs ingestion totally in serial.
+
+I also parallelized the calculation of global document frequency
+for a small performance boost, but then later caught
+an intermittent error in the tests due to the omission of a
+synchronization point, the inclusion of which would overwhelm
+the performance boost.  So this functionality should be joined
+with the serial ingestion process. This would require a bit of 
+rewriting, so for now it is done separately in serial.
+
+
+Changes:
+
+Switched to a sparse hashmap representation of documents.
+
+Split tokens semi-in-place.  (I discuss in the comments why
+  I copy tokens to a separate buffer, as well as a possible
+  improvement I thought of late)
+
+Added fields with default values for things like collection
+  pre-allocation and I/O buffer size.
+
+Small changes like reducing the number of calls to a shared hashmap
+  in parallel code from 3 to 2.
+
+
+Optimal solution:
+
+
+Summary:
+
+Collections of objects take up too much space, so instead
+represent a document with two separate byte arrays.  The elements of
+the first array are global indices for particular tokens, and the
+elements of the second array are counts for each token in the document.
+The integers are represented as 24-bit integers, 3 sequential bytes.
+
+Each element occupies 3 bytes, because we expect fewer than 256^3
+distinct tokens in the global corpus, and fewer than 256^3
+occurrences of a particular token in a document.  This offers
+far greater compression of the input than a collection, though it
+doesn't cut down on heap allocation because a dynamically-sized
+collection is still necessary at ingestion.
+
+This array could be wrapped in a class providing an iterator which 
+would handle the bit masking and element-skipping.  For a simpler
+implementation with a larger memory footprint, an array of ints
+could be used.
+
+Additionally, if the ingestion process were parallelized, a 
+shared object would be needed to generate a unique id for each 
+new distinct token, which entails a synchronization cost.  
+However, this scales well because as more documents are 
+processed, we expect fewer new distinct tokens, so the thread 
+contention rate will decrease.
+
+A rough estimate is that this would reduce the memory footprint
+by 90%.
+
+
+
+Details:
+
+I've focused on improving performance by reducing heap allocation
+and reducing the maximum memory footprint.  The issue with relying
+on collections for the sparse representation of a document is that,
+without a third-party library, the elements must be objects.
+
+For instance, in the case of a hashmap representation, each
+string-integer pair requires ~70 bytes.  sawyer.txt, which is
+420 kB, contains 70k words and 7k distinct tokens (although this
+would be significantly reduced with the application of a stemmer).
+The hashmap of these 7k tokens requires close to 500 kB.  So
+it's entirely possible that the expected compression achieved for
+a set of documents would be trivial, if not actually make it
+worse.
+
+A safe assumption is that both the number of distinct tokens within a
+corpus and also the occurrence of a given token within a document
+are both less than 256^3.
+
+Therefore, a document can be represented with two byte arrays,
+where a token occupies 3 bytes of each array, for 6 bytes per
+token.  One array is a global id for a token, and the other is
+the count for the token in the document.
+
+So in the case of sawyer.txt, the sparse representation will occupy
+42 kB, a reduction of ~90%.
+
+Because the number of distinct tokens in a document is unknown until
+after ingestion, either a collection or an array that will need
+resizing is necessary.  So this method doesn't necessarily cut down
+on heap allocation.  
+
+A small performance boost could come from the following: in the case 
+of an array resized by a factor of 2 when full, after ingestion, check whether the array is some n% full.  If the space usage is above the
+threshold, then insert a marker like '\0' in C strings, and
+forego copying to a new array.  For instance, if the byte triples
+are stored in big-endian order, the number 255 can be reserved in
+the left-most byte to signal the iterator.  This would cut down on 
+some of the re-allocations without significantly increasing the memory 
+footprint.
+
+That being said, a hashmap is still necessary for each document to
+index the array during ingestion, though this can be disposed of
+after the document is finished.
+
+Additionally, if ingestion were parallelized, a shared object 
+would be necessary to generate a unique id for each new distinct 
+token, which entails synchronization.  This scales well, because 
+as more and more documents are processed, we expect fewer new 
+distinct tokens, so the thread contention rate should decrease.
+
+The 2-array representation of the document should be wrapped in
+a class providing an iterator, which handles the bit-masking,
+conversion to an int, and element-skipping.  For a simpler
+implementation with a larger memory footprint, an int can be
+used rather than byte triples.
+
+So if the documents are processed in parallel, the memory footprint
+is limited to the sum of the size of all the byte array pairs, the
+size of the collections required to process one document, and any
+global indexing/counting collection required.
