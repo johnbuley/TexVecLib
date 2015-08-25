@@ -115,6 +115,13 @@ where a token occupies 3 bytes of each array, for 6 bytes per
 token.  One array is a global id for a token, and the other is
 the count for the token in the document.
 
+Additionally, you could create arrays of 2-byte tokens until you
+start to run out of unique ids, and then start creating 3-byte
+token arrays.  The wrappers for each type would inherit from
+a base wrapper, and each would implement their own methods
+for iteration and byte-integer conversion.  This way, both types 
+could be stored together in a document collection.
+
 So in the case of sawyer.txt, the sparse representation will occupy
 42 kB, a reduction of ~90%.
 
