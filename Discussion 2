@@ -104,7 +104,12 @@ would be significantly reduced with the application of a stemmer).
 The hashmap of these 7k tokens requires close to 500 kB.  So
 it's entirely possible that the expected compression achieved for
 a set of documents would be trivial, if not actually make it
-worse.
+worse.  
+
+The -XX:+UseStringDeduplication option can alleviate
+this, but it entails a higher workload for the GC, there is
+not guarantee, and there is still the initial footprint before
+deduplication.
 
 A safe assumption is that both the number of distinct tokens within a
 corpus and also the occurrence of a given token within a document
@@ -135,9 +140,9 @@ of an array resized by a factor of 2 when full, after ingestion, check whether t
 threshold, then insert a marker like '\0' in C strings, and
 forego copying to a new array.  For instance, if the byte triples
 are stored in big-endian order, the number 255 can be reserved in
-the left-most byte to signal the iterator.  This would cut down on 
-some of the re-allocations without significantly increasing the memory 
-footprint.
+the left-most byte to signal the iterator (although storing
+the valid length of the array is a simpler way to achieve this).  
+This would cut down on some of the re-allocations without significantly increasing the memory footprint.
 
 That being said, a hashmap is still necessary for each document to
 index the array during ingestion, though this can be disposed of
