@@ -67,7 +67,7 @@ class TfIdfVectorizer
 			       	 of training documents
 
 Library also offers overloaded methods for the above, accepting
-Map<String,SparseDoc> instead of String.
+Map<String,SparseDocHash> instead of String.
 
 
 class TfIdfMatrix

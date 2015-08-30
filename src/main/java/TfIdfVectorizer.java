@@ -64,7 +64,7 @@ public class TfIdfVectorizer {
  * -------------------------- */
 
     /* Base method for training a tf-idf model */
-    public void fit(Map<String,SparseDoc> docs, int minDf, double maxDfRatio) {
+    public void fit(Map<String, SparseDocHash> docs, int minDf, double maxDfRatio) {
 
         this.idfHash = this.getNewIdfWordHash(docs, minDf, maxDfRatio);
         this.initialized = true;
@@ -72,7 +72,7 @@ public class TfIdfVectorizer {
     }
 
     /* Base method for generating a tf-idf matrix */
-    public TfIdfMatrix transform(Map<String,SparseDoc> docs) {
+    public TfIdfMatrix transform(Map<String, SparseDocHash> docs) {
 
         if (initialized)
             return this.getTfIdfMatrix(docs, this.idfHash);
@@ -84,7 +84,7 @@ public class TfIdfVectorizer {
     }
 
     /* Base method for fitting and transforming in one step */
-    public TfIdfMatrix fitTransform(Map<String,SparseDoc> docs, int minDf, double maxDfRatio) {
+    public TfIdfMatrix fitTransform(Map<String, SparseDocHash> docs, int minDf, double maxDfRatio) {
 
         this.fit(docs,minDf,maxDfRatio);
         return transform(docs);
@@ -109,7 +109,7 @@ public class TfIdfVectorizer {
     /* This is an overloaded method for handling folder inputs */
     public TfIdfMatrix fitTransform(String inputFolder, int minDf, double maxDfRatio) {
 
-        Map<String,SparseDoc> input = this.processInputFolder(inputFolder);
+        Map<String, SparseDocHash> input = this.processInputFolder(inputFolder);
 
         this.fit(input,minDf,maxDfRatio);
         return transform(input);
@@ -122,11 +122,11 @@ public class TfIdfVectorizer {
  * -------------------------- */
 
     /* Finds .txt files in a given folder and collects them into a list of strings */
-    private Map<String,SparseDoc> processInputFolder(String folderName) {
+    private Map<String, SparseDocHash> processInputFolder(String folderName) {
 
         Path inputPath = Paths.get(folderName);
 
-        List<SparseDoc> results = new ArrayList<>();
+        List<SparseDocHash> results = new ArrayList<>();
 
         if (Files.exists(inputPath)) {
             try {
@@ -151,7 +151,7 @@ public class TfIdfVectorizer {
         }
 
         /* Allocates for the number of documents */
-        Map<String,SparseDoc> docs = new HashMap<>(results.size());
+        Map<String, SparseDocHash> docs = new HashMap<>(results.size());
 
         results.forEach(doc -> docs.put(doc.filename, doc));
 
@@ -159,7 +159,7 @@ public class TfIdfVectorizer {
     }
 
     /* Reads a file through a FileChannel, returns a sparse representation of the document */
-    public SparseDoc sparsifyDoc(Path filePath) throws IOException {
+    public SparseDocHash sparsifyDoc(Path filePath) throws IOException {
 
         Map<String, Integer> doc = new HashMap<>(defaultDocSize);
 
@@ -212,7 +212,7 @@ public class TfIdfVectorizer {
             buf.clear();
         }
 
-        return new SparseDoc(filePath.getFileName().toString(),doc);
+        return new SparseDocHash(filePath.getFileName().toString(),doc);
 
     }
 
@@ -238,7 +238,7 @@ public class TfIdfVectorizer {
  * -------------------------- */
 
     /* Top-level method for returning a collection of <word,idf> pairs */
-    private ConcurrentHashMap<String,Double> getNewIdfWordHash(Map<String, SparseDoc> docs,
+    private ConcurrentHashMap<String,Double> getNewIdfWordHash(Map<String, SparseDocHash> docs,
                                                                int minDf, double maxDfRatio) {
 
         Map<String,Integer> wordDocFreqs = getGlobalWordDocFreq(docs);
@@ -268,7 +268,7 @@ public class TfIdfVectorizer {
 
     /* Calculate document frequency
        df(word) = |{docs d | d contains word}| */
-    private Map<String,Integer> getGlobalWordDocFreq(Map<String, SparseDoc> docs) {
+    private Map<String,Integer> getGlobalWordDocFreq(Map<String, SparseDocHash> docs) {
 
         /* This section was parallelized, but I caught an error caused by the omission of
          * a synchronization point.  So, as described in Discussion 2, this should be joined
@@ -287,7 +287,7 @@ public class TfIdfVectorizer {
     /* Method called by executor threads to calculate document frequency in parallel.
        Method no longer needed when this functionality is joined with ingestion.  */
     private void updateGlobalWordDocFreqs(Map<String, Integer> globalWordDocFreqs,
-                                          SparseDoc doc) {
+                                          SparseDocHash doc) {
 
         Integer currentCount;
 
@@ -314,7 +314,7 @@ public class TfIdfVectorizer {
  * -------------------------- */
 
     /* Top-level method for returning a TfIdfMatrix object */
-    private TfIdfMatrix getTfIdfMatrix(Map<String, SparseDoc> docs,
+    private TfIdfMatrix getTfIdfMatrix(Map<String, SparseDocHash> docs,
                                        ConcurrentHashMap<String, Double> idfHash) {
 
 
@@ -329,7 +329,7 @@ public class TfIdfVectorizer {
         Map<String,Integer> docIndex = new HashMap<>(docs.size());
         int i = 0;
 
-        for (SparseDoc doc : docs.values()) {
+        for (SparseDocHash doc : docs.values()) {
             docIndex.put(doc.filename,i++);
         }
 
@@ -352,7 +352,7 @@ public class TfIdfVectorizer {
 
     /* Returns a hashmap that is an index of the 'valid' words, which is the intersection of the
        fit and transform corpora. */
-    private ConcurrentHashMap<String,Integer> getPresentWordsIndex(Map<String, SparseDoc> docs,
+    private ConcurrentHashMap<String,Integer> getPresentWordsIndex(Map<String, SparseDocHash> docs,
                                                                    ConcurrentHashMap<String, Double> idfHash) {
 
         ConcurrentHashMap<String,Integer> presentWordsIndex = new ConcurrentHashMap<>(defaultCorpusSize);
@@ -364,7 +364,7 @@ public class TfIdfVectorizer {
            a shared integer for providing a unique index, and so would be hobbled
            by synchronization. */
         int i = 0;
-        for(SparseDoc doc : docs.values()) {
+        for(SparseDocHash doc : docs.values()) {
             for(String word : doc.docHash.keySet()) {
                 if (!presentWordsIndex.containsKey(word)) {
                     if (idfHash.containsKey(word)) {
@@ -379,7 +379,7 @@ public class TfIdfVectorizer {
     }
 
     /* This method asynchronously calls getTfIdfEntries() and then writeTfIdfEntriesToMatrix() */
-    private void asyncCalcTfIdfAndWrite(Map<String, SparseDoc> docs,
+    private void asyncCalcTfIdfAndWrite(Map<String, SparseDocHash> docs,
                                         Map<String, Integer> docIndex,
                                         ConcurrentHashMap<String, Double> idfHash,
                                         ConcurrentHashMap<String, Integer> presentWordsListIndex,

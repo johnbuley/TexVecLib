@@ -14,6 +14,25 @@ public class UserTest {
 
         TfIdfVectorizer vec = new TfIdfVectorizer();
 
+        DocumentSet set = new DocumentSet(DocumentSet.DocumentSetType.FIT);
+        try {
+            set.addFolder("./src/test/resources/twainhomer/");
+        }
+        catch (Exception e) { System.out.println(e.toString()); }
+
+        set.getCorpus().filterValidWords(2,.8);
+        set.getCorpus().calcIdf();
+
+        for(Object doc : set) {
+
+            for(int[] result: ((SparseDoc)doc)) {
+
+                System.out.println(result[0] + " | " + result[1]);
+
+            }
+
+        }
+
         long startTime = System.nanoTime();
 
         TfIdfMatrix result = vec.fitTransform("./src/test/resources/twainhomer/", 2, .8);

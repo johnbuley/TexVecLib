@@ -24,13 +24,13 @@ public class TestTfIdfVectorizer {
         expectedDocHash.put("the",2); expectedDocHash.put("brown",1); expectedDocHash.put("cow",1);
         expectedDocHash.put("sits", 1); expectedDocHash.put("in", 1); expectedDocHash.put("grass", 2);
 
-        SparseDoc expectedResult = new SparseDoc("docA.txt",expectedDocHash);
+        SparseDocHash expectedResult = new SparseDocHash("docA.txt",expectedDocHash);
 
         Object[] testInputArray = { Paths.get("./src/test/resources/testInputFolder/docA.txt") };
         Class<?>[] testClassArray = { Path.class };
 
-        SparseDoc producedResult =
-                (SparseDoc)callTfIdfPrivateMethod("sparsifyDoc", vec,testInputArray, testClassArray);
+        SparseDocHash producedResult =
+                (SparseDocHash)callTfIdfPrivateMethod("sparsifyDoc", vec,testInputArray, testClassArray);
 
         assertEquals(producedResult.filename,expectedResult.filename);
 
@@ -55,13 +55,13 @@ public class TestTfIdfVectorizer {
         Object[] testInputArray = { "./src/test/resources/testInputFolder/" };
         Class<?>[] testClassArray = { String.class };
 
-        Map<String,SparseDoc> producedResult =
-                (Map<String,SparseDoc>)callTfIdfPrivateMethod("processInputFolder", vec, testInputArray, testClassArray);
+        Map<String, SparseDocHash> producedResult =
+                (Map<String, SparseDocHash>)callTfIdfPrivateMethod("processInputFolder", vec, testInputArray, testClassArray);
 
         assertEquals(expectedResult.size(),producedResult.size());
 
         /* Since sparsifyDoc is tested elsewhere, this just checks that the expected file keys
-           are present, and the value of each is a SparseDoc. */
+           are present, and the value of each is a SparseDocHash. */
         expectedResult.forEach(entry -> {
             assertTrue(producedResult.containsKey(entry));
             assertTrue(producedResult.get(entry) != null);
@@ -94,15 +94,15 @@ public class TestTfIdfVectorizer {
         //Object[] testInputArray = { testDoc, testConcatBuf, 3 };
         //Class<?>[] testClassArray = { testDoc.getClass(), byte[].class, int.class };
 
-        //Map<String,SparseDoc> producedResult =
-                //(Map<String,SparseDoc>)callTfIdfPrivateMethod("addWordToDoc", vec, testInputArray, testClassArray);*/
+        //Map<String,SparseDocHash> producedResult =
+                //(Map<String,SparseDocHash>)callTfIdfPrivateMethod("addWordToDoc", vec, testInputArray, testClassArray);*/
 
     }
 
     @Test
     public void test_getNewIdfWordHash() {
 
-        Map<String,SparseDoc> testDocs = getMockDocs();
+        Map<String, SparseDocHash> testDocs = getMockDocs();
 
         ConcurrentHashMap<String,Double> expectedIdfValuesHash = new ConcurrentHashMap<>();
         expectedIdfValuesHash.put("blue",Math.log(3./2)); expectedIdfValuesHash.put("brown",Math.log(3./1));
@@ -136,7 +136,7 @@ public class TestTfIdfVectorizer {
         expectedResult.put("sits",3);expectedResult.put("in",3);expectedResult.put("blue",2);
         expectedResult.put("grass",2);expectedResult.put("field",1);
 
-        Map<String,SparseDoc> testDocs = getMockDocs();
+        Map<String, SparseDocHash> testDocs = getMockDocs();
 
         TfIdfVectorizer vec = new TfIdfVectorizer();
 
@@ -153,14 +153,14 @@ public class TestTfIdfVectorizer {
 
         expectedResult.entrySet().forEach(entry ->
                 assertEquals(entry.getValue(),
-                             producedResult.get(entry.getKey())));
+                        producedResult.get(entry.getKey())));
 
     }
 
     @Test
     public void test_getTfIdfEntries() {
 
-        Map<String,SparseDoc> testDocs = getMockDocs();
+        Map<String, SparseDocHash> testDocs = getMockDocs();
         ConcurrentHashMap<String,Double> testIdfHash = getMockIdfHash();
 
         Map<String,Double> expectedResult = new HashMap<>();
@@ -218,7 +218,7 @@ public class TestTfIdfVectorizer {
         List<String> testResult = Arrays.asList("blue", "brown", "grass", "field");
 
         ConcurrentHashMap<String,Double> mockIdfHash = getMockIdfHash();
-        Map<String,SparseDoc> testDocs = getMockDocs();
+        Map<String, SparseDocHash> testDocs = getMockDocs();
 
         TfIdfVectorizer vec = new TfIdfVectorizer();
 
@@ -253,7 +253,7 @@ public class TestTfIdfVectorizer {
     public void test_getTfIdfMatrix() {
 
         ConcurrentHashMap<String,Double> testIdfHash = getMockIdfHash();
-        Map<String,SparseDoc> testDocs = getMockDocs();
+        Map<String, SparseDocHash> testDocs = getMockDocs();
 
         TfIdfVectorizer vec = new TfIdfVectorizer();
 
@@ -294,6 +294,28 @@ public class TestTfIdfVectorizer {
 
     }
 
+    @Test
+    public void test_IntArrayAsBytes() {
+
+        IntArrayAsBytes testArray = new IntArrayAsBytes(4,3);
+
+        int[] testValues = { 0, 255, 127, 10 };
+
+        /* Separate for-loops are used to test whether values are overwritten on subsequent iterations */
+        for (int i = 0; i < 4; i++)
+            testArray.set(i,testValues[i]);
+
+        for (int i = 0; i < 4; i++)
+            assertEquals(testValues[i],testArray.get(i));
+
+        for (int i = 0; i < 4; i++)
+            testArray.increment(i);
+
+        for (int i = 0; i < 4; i++)
+            assertEquals(testValues[i]+1,testArray.get(i));
+
+    }
+
 /* ---------------------------
    Utility Methods
  * --------------------------- */
@@ -318,7 +340,7 @@ public class TestTfIdfVectorizer {
 
     public ConcurrentHashMap<String,Double> getMockIdfHash() {
 
-        Map<String,SparseDoc> testInput = getMockDocs();
+        Map<String, SparseDocHash> testInput = getMockDocs();
 
         TfIdfVectorizer vec = new TfIdfVectorizer();
 
@@ -330,14 +352,14 @@ public class TestTfIdfVectorizer {
 
     }
 
-    private Map<String,SparseDoc> getMockDocs() {
+    private Map<String, SparseDocHash> getMockDocs() {
 
         TfIdfVectorizer vec = new TfIdfVectorizer();
 
         Object[] testInputArray = { "./src/test/resources/testInputFolder/" };
         Class<?>[] testClassArray = { String.class };
 
-        return (Map<String,SparseDoc>)callTfIdfPrivateMethod("processInputFolder", vec,
+        return (Map<String, SparseDocHash>)callTfIdfPrivateMethod("processInputFolder", vec,
                                                              testInputArray, testClassArray);
     }
 }
