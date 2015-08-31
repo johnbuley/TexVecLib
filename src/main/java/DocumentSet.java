@@ -97,13 +97,21 @@ public class DocumentSet implements Iterable<SparseDoc> {
    -----------------------------  */
 
     /* Public method for adding a single document */
-    public void addDoc(String docName, Path filePath) {
+    public void addFile(String docName, String pathString) {
+
+        this.addFile(docName,Paths.get(pathString));
+
+    }
+
+    public void addFile(String docName, Path filePath) {
 
         try {
-            this.addSparseDoc(docName, this.sparsifyDoc(filePath.getFileName().toString(), filePath));
+            SparseDoc doc = this.sparsifyDoc(filePath.getFileName().toString(), filePath);
+            this.corpus.addDoc(doc);
+            doc.compress();
+            this.addSparseDoc(docName, this.sparsifyDoc(docName, filePath));
         }
         catch (Exception e) { System.err.println(e.toString()); }
-
     }
 
     /* Public method for adding a folder of documents */
@@ -156,12 +164,7 @@ public class DocumentSet implements Iterable<SparseDoc> {
                 *   and add each to list of document strings. */
                 for (Path filePath : stream) {
                     try {
-
-                        SparseDoc doc = this.sparsifyDoc(filePath.getFileName().toString(), filePath);
-                        this.corpus.addDoc(doc);
-                        doc.compress();
-                        this.addSparseDoc(filePath.getFileName().toString(), doc);
-
+                        this.addFile(filePath.getFileName().toString(), filePath);
                     }
                     catch (Exception e) {
                         System.err.println("Error reading file: " + filePath.toString() +

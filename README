@@ -27,7 +27,7 @@ JUnit and JAMA for test module
 
 Components
 ---------------------------------------------------------------
-class TfIdfVectorizerOld
+class TfIdfVectorizer
 
   public void fit(String, int, float)
   	      	
@@ -44,7 +44,7 @@ class TfIdfVectorizerOld
 			       	 of training documents
 
 
-  public TfIdfMatrix transform(Map<String,)
+  public TfIdfMatrix transform(String)
 
  		Generates a TfIdfMatrix based on the trained
 		model.
@@ -52,7 +52,7 @@ class TfIdfVectorizerOld
  		String  	path to folder of documents
 
 
-  public TfIdfMatrix fitTransform(List<String>, int, float)
+  public TfIdfMatrix fitTransform(String, int, float)
 
   	 	Performs both fit and transform steps.
 
@@ -67,12 +67,14 @@ class TfIdfVectorizerOld
 			       	 of training documents
 
 Library also offers overloaded methods for the above, accepting
-Map<String,SparseDocHash> instead of String.
+DocumentSet instead of String.
 
 
 class TfIdfMatrix
 
   public final double[][] matrix    a tf-idf matrix
+
+
 
   public int indexOf(String)	    returns the column index of a word
 
@@ -82,3 +84,45 @@ class TfIdfMatrix
   public int getDocIndex(String)    returns the row index of a doc
 
   public String getDocAt(int)	    returns doc at row index
+
+
+class Corpus
+
+  public addDoc(SparseDoc)	    updates Corpus for new doc
+
+  public filterValidTokens	    filters a collection of tokens to
+	(int,double)	            be used for tf-idf calc
+
+  public calcIdf()		    calculate idf for all known
+                                    tokens in the corpus; not
+                                    dependent on valid tokens
+
+
+class DocumentSet
+
+  public enum DocumentSetType	    if FIT, then corpus unlocked
+                                    if TRANSFORM, corpus locked
+                                    (no new tokens)
+
+
+  public addFolder(String)	    add all text files in a folder
+                                    to set
+
+  public iterator()		    returns an iterator for the doc
+	                            collection
+
+
+class IntArrayAsBytes
+
+
+class SparseDoc
+
+  public addToken(int)		    given a unique token id, add token
+
+  public DocIterator iterator()	    returns iterator which joins elements
+                                    of two byte arrays: tokenIds and
+                                    tokenCounts
+
+  public void compress()	    dispose array index and resize byte
+                                    arrays to minimum necessary
+  

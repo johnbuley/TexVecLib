@@ -51,8 +51,6 @@ public class Corpus {
     public void setLock(boolean value) { this.locked = value; }
     public boolean getLock(boolean value) { return this.locked; }
 
-    public void incNumDocs() { this.numDocs++; }
-    public void setNumDocs(int value) { this.numDocs = value; }
     public int getNumDocs() { return this.numDocs; }
 
     public boolean isIdfCalculated() { return this.idfReady; }

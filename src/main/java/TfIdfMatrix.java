@@ -9,12 +9,14 @@ public class TfIdfMatrix {
     private final Map<Integer,String> wordByWordIndex;
     private final Map<String,Integer> docIndexByFilename;
     private final Map<Integer,String> docFilenameByIndex;
+    private final int numDocs;
 
     public TfIdfMatrix(double[][] matrix, Map<String,Integer> words, Map<String,Integer> docIndex) {
 
         this.matrix = matrix;
         this.wordIndexByWord = words;
         this.docIndexByFilename = docIndex;
+        this.numDocs = docIndex.size();
 
         /* Copy inversion of docIndexByFilename to docFilenameByIndex.
            Values of docIndexByFilename are distinct. */
@@ -44,4 +46,6 @@ public class TfIdfMatrix {
 
     /* Given an index, return filename */
     public String getDocAt(int index) { return this.docFilenameByIndex.get(index); }
+
+    public int numDocs() { return this.numDocs; }
 }

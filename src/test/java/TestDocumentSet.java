@@ -15,7 +15,7 @@ public class TestDocumentSet {
 
         DocumentSet docSet = new DocumentSet();
 
-        docSet.addDoc("docA.txt", Paths.get("./src/test/resources/testInputFolder/docA.txt"));
+        docSet.addFile("docA.txt", "./src/test/resources/testInputFolder/docA.txt");
 
         SparseDoc doc = docSet.getDoc(0);
 

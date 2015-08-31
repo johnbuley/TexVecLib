@@ -14,40 +14,72 @@ public class UserTest {
 
         TfIdfVectorizer vec = new TfIdfVectorizer();
 
-        long startTime = System.nanoTime();
+/* -----------------------------
+   One-Step Example
+   -----------------------------  */
 
         TfIdfMatrix result = vec.fitTransform("./src/test/resources/twainhomer/", 2, .8);
-
-        //TfIdfMatrix result = vec.fitTransform("./src/test/resources/bigtest/", 2, .8);
-
-        long endTime = System.nanoTime();
-
-        System.out.println("fitTransform time : " + (new DecimalFormat("#0.00")).format((double) (endTime - startTime) / 1000000.) + " ms");
 
         Matrix matrix = new Matrix(result.matrix);
 
         /* Get similarity matrix */
         Matrix similarity = matrix.times(matrix.transpose());
 
+        System.out.println();
+        System.out.println("one-step example");
+        System.out.println();
+        printResult(result, similarity);
+
+
+/* -----------------------------
+   Two-Step Example
+   -----------------------------  */
+
+        DocumentSet fitDocSet = new DocumentSet();
+
+        fitDocSet.addFile("odyssey", "./src/test/resources/twainhomer/odyssey.txt");
+        fitDocSet.addFile("sawyer","./src/test/resources/twainhomer/sawyer.txt");
+
+        Corpus corpus = vec.fit(fitDocSet,1,1.0);
+
+        DocumentSet transformDocSet = new DocumentSet(DocumentSet.DocumentSetType.TRANSFORM,corpus);
+
+        transformDocSet.addFile("iliad", "./src/test/resources/twainhomer/iliad.txt");
+        transformDocSet.addFile("huckfinn", "./src/test/resources/twainhomer/huckfinn.txt");
+
+        result = vec.transform(transformDocSet,corpus);
+
+        matrix = new Matrix(result.matrix);
+
+        similarity = matrix.times(matrix.transpose());
+
+        System.out.println();
+        System.out.println("two-step example");
+        System.out.println();
+        printResult(result,similarity);
+
+    }
+
+    private static void printResult(TfIdfMatrix result, Matrix similarity) {
 
         /* Print output. */
         DecimalFormat f = new DecimalFormat("#0.00");
 
-        System.out.println("fitTransform time : " + f.format((double)(endTime - startTime)/1000000.) + " ms");
         System.out.println();
         System.out.println("Similarity Score  [0,1]");
         System.out.printf("                  ");
-        for(int i = 0; i < 4; i++) {
+        for(int i = 0; i < result.numDocs(); i++) {
             System.out.printf(result.getDocAt(i) + "     ");
         }
         System.out.println();
-        for(int i = 0; i < 4; i++) {
+        for(int i = 0; i < result.numDocs(); i++) {
             System.out.printf(result.getDocAt(i));
-            for (int j = 0; j < 4; j++) {
+            for (int j = 0; j < result.numDocs(); j++) {
                 System.out.printf("           " + f.format(similarity.get(i, j)));
             }
             System.out.println(System.getProperty("line.separator"));
         }
+
     }
 
 }

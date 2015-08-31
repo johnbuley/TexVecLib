@@ -1,0 +1,71 @@
+Improvements
+
+
+Performance
+Benchmark: 100 mB folder, 2 CPUs available (run on VM)
+
+Branch			master		arrays
+---------------------------------------------------------
+Ingestion time          3000 ms		3000
+---------------------------------------------------------
+Time ex. ingestion	500		250
+---------------------------------------------------------
+Footprint		raw size	10% of raw size	
+---------------------------------------------------------
+
+
+Design
+
+The footprint improvement came from the implementation of
+a compressed byte array representation of a document.
+
+A collection is allocated for each SparseDoc to index
+the arrays, but this is disposed when compress() is called,
+so only one such collection exists at any time.
+
+
+The previous version had a procedural flavor to
+it, so I added some abstraction for extensibility.
+
+Advantages:
+
+   A Corpus object is essentially the set of metadata for
+   a DocumentSet data model.  All of the relevant metadata
+   is encapsulated in a Corpus, and so this can be
+   serialized or written to a database for later use, and
+   the DocumentSet may be disposed.  A use case would be
+   processing a new set of documents each day, which will
+   be added to the existing Corpus.
+
+   The functionality of the library can be expanded more
+   easily because the calculation of TfIdfVectorizer has
+   been separated from the now-reusable data model.
+
+Disadvantages:
+
+   As the DocumentSet and Corpus are passed around, more
+   input checking is required.  Additionally, the Corpus
+   in particular can occupy different states, enforced
+   by locking.  I chose to handle this with the 
+   enum DocumentSetType passed to DocumentSet, but I don't
+   know that this would be very intuitive for someone
+   else looking over the code.
+
+
+Tests
+
+Unit-test coverage suffered a bit, because given the time available,
+I focused on implementing the improvements I felt were
+necessary.  For this version, I relied on a few top-level
+tests that aren't atomic.
+
+A better example of a unit-test suite can be found in
+the master branch.
+
+
+Issues
+
+I think the main weakness right now is the input checking
+that's done as DocumentSet and Corpus are passed around.  At
+the moment, I think there are gaps, and where implemented,
+the input checking isn't very intuitive to someone else.

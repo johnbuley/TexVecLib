@@ -4,8 +4,10 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public final class Utilities {
 
-        /* I wrote this to allow me to use reflection to call a private method with an arbitrary number of parameters */
-    public static Object callTfIdfPrivateMethod(String methodName, Object targetObj, Object[] input, Class<?>[] inputType) {
+    /* I wrote this to allow the use of reflection to call a private method with an
+       arbitrary number of parameters */
+    public static Object callTfIdfPrivateMethod(String methodName, Object targetObj,
+                                                Object[] input, Class<?>[] inputType) {
 
         Object result = null;
 
