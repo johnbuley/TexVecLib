@@ -75,7 +75,6 @@ class TfIdfMatrix
   public final double[][] matrix    a tf-idf matrix
 
 
-
   public int indexOf(String)	    returns the column index of a word
 
   public String wordAt(int)	    returns the word corresponding to
@@ -105,19 +104,16 @@ class DocumentSet
                                     (no new tokens)
 
 
-  public addFolder(String)	    add all text files in a folder
+  public void addFolder(String)	    add all text files in a folder
                                     to set
 
-  public iterator()		    returns an iterator for the doc
-	                            collection
-
-
-class IntArrayAsBytes
-
+  public Iterator<SparseDoc>        returns an iterator for the doc
+                  iterator()	    collection
+	                            
 
 class SparseDoc
 
-  public addToken(int)		    given a unique token id, add token
+  public void addToken(int)	    given a unique token id, add token
 
   public DocIterator iterator()	    returns iterator which joins elements
                                     of two byte arrays: tokenIds and
@@ -125,4 +121,20 @@ class SparseDoc
 
   public void compress()	    dispose array index and resize byte
                                     arrays to minimum necessary
+
+
+class IntArrayAsBytes
+
+  public void set(int,int)	    set element using the abstracted
+                                    index; i.e., if 1000 ints are
+                                    stored in 3000 bytes, the consumer
+                                    references the 1000-element index
+
+  public void get(int)		    get element at abstract index
+
+  public void increment(int)	    increment element at abstract index
+
+  public void resize(int)           use abstract length to resize arrays,
+                                    either larger as during ingestion,
+                                    or smaller for compression
   

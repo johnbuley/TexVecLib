@@ -26,7 +26,7 @@ public class UserTest {
         Matrix similarity = matrix.times(matrix.transpose());
 
         System.out.println();
-        System.out.println("one-step example");
+        System.out.println("one-step example:");
         System.out.println();
         printResult(result, similarity);
 
@@ -54,7 +54,8 @@ public class UserTest {
         similarity = matrix.times(matrix.transpose());
 
         System.out.println();
-        System.out.println("two-step example");
+        System.out.println("two-step example:");
+        System.out.println("different parameters are used, so different result is expected");
         System.out.println();
         printResult(result,similarity);
 
