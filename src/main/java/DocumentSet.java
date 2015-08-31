@@ -8,27 +8,48 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 
-public class DocumentSet implements Iterable {
+public class DocumentSet implements Iterable<SparseDoc> {
+
+/* -----------------------------
+   Enumerator
+   -----------------------------  */
 
     public enum DocumentSetType {
         FIT, TRANSFORM
     }
 
-    public Map<String,Integer> docIndex;
-    public List<SparseDoc> docs;
-    public Corpus corpus;
 
-    private int maxStringLength = 64;
-    private int ioBufferSize = 2048;
-    private int defaultDocSize = 1024;
+/* -----------------------------
+   Fields
+   -----------------------------  */
 
-    public DocumentSet(DocumentSetType type) {
+    private final Map<String,Integer> docIndex;
+    private final List<SparseDoc> docs;
+    private final Corpus corpus;
+    private int numDocs;
+
+
+/* -----------------------------
+   Defaults
+   -----------------------------  */
+
+    private int maxStringLength = 64; /* chars */
+    private int ioBufferSize = 4096; /* bytes */
+    private int defaultDocSize = 4096; /* expected number of distinct words in a document */
+
+
+/* -----------------------------
+   Constructors
+   -----------------------------  */
+
+    public DocumentSet() {
 
         this.docIndex = new HashMap<>();
         this.docs = new ArrayList<>();
         this.corpus = new Corpus();
+        this.numDocs = 0;
 
-        setCorpusOptions(this.corpus,type);
+        setCorpusOptions(this.corpus,DocumentSetType.FIT);
 
     }
 
@@ -37,26 +58,61 @@ public class DocumentSet implements Iterable {
         this.docIndex = new HashMap<>();
         this.docs = new ArrayList<>();
         this.corpus = corpus;
+        this.numDocs = 0;
 
         setCorpusOptions(this.corpus,type);
 
     }
 
+
+/* -----------------------------
+   Get/Set
+   -----------------------------  */
+
+    public int getMaxStringLength() { return maxStringLength; }
+    public void setMaxStringLength(int value) { maxStringLength = value; }
+
+    public int getIoBufferSize() { return ioBufferSize; }
+    public void setIoBufferSize(int value) { ioBufferSize = value; }
+
+    public int getDefaultDocSize() { return defaultDocSize; }
+    public void setDefaultDocSize(int value) { defaultDocSize = value; }
+
     public Corpus getCorpus() { return this.corpus; }
+
+    public int numDocs() { return this.numDocs; }
+
+    public SparseDoc getDoc(int index) {
+
+        if (index < this.docs.size())
+            return this.docs.get(index);
+        else
+            return null;
+
+    }
+
 
 /* -----------------------------
    Public Methods
    -----------------------------  */
 
-    public void addDoc(String docName, Path filePath) throws Exception {
+    /* Public method for adding a single document */
+    public void addDoc(String docName, Path filePath) {
 
-        this.addSparseDoc(docName,this.sparsifyDoc(filePath.getFileName().toString(),filePath));
+        try {
+            this.addSparseDoc(docName, this.sparsifyDoc(filePath.getFileName().toString(), filePath));
+        }
+        catch (Exception e) { System.err.println(e.toString()); }
 
     }
 
-    public void addFolder(String inputFolder) throws Exception {
+    /* Public method for adding a folder of documents */
+    public void addFolder(String inputFolder) {
 
-        this.processInputFolder(Paths.get(inputFolder));
+        try {
+            this.processInputFolder(Paths.get(inputFolder));
+        }
+        catch (Exception e) { System.err.println(e.toString()); }
 
     }
 
@@ -72,25 +128,20 @@ public class DocumentSet implements Iterable {
    Private Methods
    -----------------------------  */
 
-/*    private void updateWordCounts(SparseDoc doc, Corpus corpus) {
-
-        for(int[] result: ((SparseDoc)doc)) {
-
-            corpus.updateDocOccurrence(result[0]);
-
-        }
-
-    }*/
-
+    /* I see two alternative ways to control the interaction between a DocumentSet
+       and its Corpus.  Inheritance doesn't necessarily address the issue, because
+       the interaction can change over the life of the object.  I could expect
+       the consumer of the library to set these parameters manually, but that's
+       not very clean and prone to error.  So DocumentSetType allows for the definition
+       of parameter templates that can be used to control locking, compression, and
+       other behavior. */
     private void setCorpusOptions(Corpus corpus, DocumentSetType type) {
 
         if (type == DocumentSetType.FIT) {
             corpus.setLock(false);
-            corpus.setCalcIdf(true);
         }
         else if (type == DocumentSetType.TRANSFORM) {
             corpus.setLock(true);
-            corpus.setCalcIdf(false);
         }
 
     }
@@ -105,10 +156,12 @@ public class DocumentSet implements Iterable {
                 *   and add each to list of document strings. */
                 for (Path filePath : stream) {
                     try {
+
                         SparseDoc doc = this.sparsifyDoc(filePath.getFileName().toString(), filePath);
-                        //this.updateWordCounts(doc,corpus);
                         this.corpus.addDoc(doc);
+                        doc.compress();
                         this.addSparseDoc(filePath.getFileName().toString(), doc);
+
                     }
                     catch (Exception e) {
                         System.err.println("Error reading file: " + filePath.toString() +
@@ -121,22 +174,25 @@ public class DocumentSet implements Iterable {
         else {
             System.err.println("Not a valid path.");
         }
+
     }
 
     /* Adds a SparseDocHash to collection, returns assigned index */
     private int addSparseDoc(String docName, SparseDoc doc) {
 
         docs.add(doc);
-        docIndex.put(docName,docs.size()-1);
+        docIndex.put(docName, docs.size() - 1);
+        this.numDocs++;
 
         /* Return index assigned to document */
         return docs.size()-1;
 
     }
 
+    /* Builds a SparseDoc object from a raw document */
     private SparseDoc sparsifyDoc(String docName, Path filePath) throws Exception {
 
-        SparseDoc doc = SparseDoc.getSparseDoc(docName,8);
+        SparseDoc doc = new SparseDoc(docName,defaultDocSize,2);
 
         ByteBuffer buf = ByteBuffer.allocate(ioBufferSize);
         byte[] concatBuf = new byte[maxStringLength];
@@ -155,7 +211,7 @@ public class DocumentSet implements Iterable {
            but that would be lossy in cases where a token spanned two separate
            FileChannel reads.  In this case, a token is only lost if it
            exceeds the size of the concatenation buffer.
-           A small improvement I thought of late was the following: if I'm processing
+           A small improvement I thought of was the following: if I'm processing
            in place, without copying, and the last n bytes in the read buffer are part
            of an unfinished token, then on the next read only ioBufferSize-n bytes,
            preserving the first part of the token at the end of the read buffer, which
@@ -191,6 +247,7 @@ public class DocumentSet implements Iterable {
 
     }
 
+    /* Adds token to SparseDoc and resets the concat buffer */
     private void addWordToDoc(SparseDoc doc, byte[] concatBuf, IntegerPtr bufPtr) {
 
         String word = new String(concatBuf, 0, bufPtr.value);
@@ -202,7 +259,4 @@ public class DocumentSet implements Iterable {
         }
 
     }
-
-
-
 }

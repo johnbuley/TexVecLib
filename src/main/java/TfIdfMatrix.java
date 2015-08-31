@@ -5,10 +5,10 @@ import java.util.Map;
 public class TfIdfMatrix {
 
     public final double[][] matrix;
-    public final Map<String,Integer> wordIndexByWord;
-    public final Map<Integer,String> wordByWordIndex;
-    public final Map<String,Integer> docIndexByFilename;
-    public final Map<Integer,String> docFilenameByIndex;
+    private final Map<String,Integer> wordIndexByWord;
+    private final Map<Integer,String> wordByWordIndex;
+    private final Map<String,Integer> docIndexByFilename;
+    private final Map<Integer,String> docFilenameByIndex;
 
     public TfIdfMatrix(double[][] matrix, Map<String,Integer> words, Map<String,Integer> docIndex) {
 
@@ -29,13 +29,13 @@ public class TfIdfMatrix {
                 this.wordByWordIndex.put(entry.getValue(),entry.getKey()));
     }
 
-    /* Given a word, get index */
-    public int indexOf(String word) {
-        return wordIndexByWord.get(word);
+    /* Given a token, get index */
+    public int indexOfToken(String token) {
+        return wordIndexByWord.get(token);
     }
 
     /* Given an index, get word */
-    public String wordAt(int i) {
+    public String tokenAt(int i) {
         return wordByWordIndex.get(i);
     }
 

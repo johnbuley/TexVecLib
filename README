@@ -27,7 +27,7 @@ JUnit and JAMA for test module
 
 Components
 ---------------------------------------------------------------
-class TfIdfVectorizer
+class TfIdfVectorizerOld
 
   public void fit(String, int, float)
   	      	

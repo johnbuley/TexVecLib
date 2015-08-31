@@ -1,13 +1,13 @@
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-public class DocIterator implements Iterator {
+public class DocIterator implements Iterator<TokenArrayElement> {
 
     private final IntArrayAsBytes tokenIdsArray;
     private final IntArrayAsBytes tokenCountsArray;
     private final int length;
     private int currentIndex;
-    int[] item;
+    TokenArrayElement element;
 
     public DocIterator(IntArrayAsBytes tokenIdsArray, IntArrayAsBytes tokenCountsArray, int length) {
 
@@ -15,20 +15,24 @@ public class DocIterator implements Iterator {
         this.tokenCountsArray = tokenCountsArray;
         this.length  = length;
         currentIndex = 0;
-        item = new int[2];
+
+        /* element is the object returned by the iterator, created once. */
+        element = new TokenArrayElement();
 
     }
 
     @Override
-    public int[] next() {
+    public TokenArrayElement next() {
 
         if (this.hasNext()) {
 
-            item[0] = tokenIdsArray.get(currentIndex);
-            item[1] = tokenCountsArray.get(currentIndex);
+            /* Set fields of returned object. */
+            element.tokenId = tokenIdsArray.get(currentIndex);
+            element.tokenCount = tokenCountsArray.get(currentIndex);
+
             currentIndex++;
 
-            return item;
+            return element;
 
         }
         else {

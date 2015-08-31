@@ -14,30 +14,15 @@ public class UserTest {
 
         TfIdfVectorizer vec = new TfIdfVectorizer();
 
-        DocumentSet set = new DocumentSet(DocumentSet.DocumentSetType.FIT);
-        try {
-            set.addFolder("./src/test/resources/twainhomer/");
-        }
-        catch (Exception e) { System.out.println(e.toString()); }
-
-        set.getCorpus().filterValidWords(2,.8);
-        set.getCorpus().calcIdf();
-
-        for(Object doc : set) {
-
-            for(int[] result: ((SparseDoc)doc)) {
-
-                System.out.println(result[0] + " | " + result[1]);
-
-            }
-
-        }
-
         long startTime = System.nanoTime();
 
         TfIdfMatrix result = vec.fitTransform("./src/test/resources/twainhomer/", 2, .8);
 
+        //TfIdfMatrix result = vec.fitTransform("./src/test/resources/bigtest/", 2, .8);
+
         long endTime = System.nanoTime();
+
+        System.out.println("fitTransform time : " + (new DecimalFormat("#0.00")).format((double) (endTime - startTime) / 1000000.) + " ms");
 
         Matrix matrix = new Matrix(result.matrix);
 
