@@ -49,6 +49,7 @@ public class DocumentSet implements Iterable<SparseDoc> {
         this.corpus = new Corpus();
         this.numDocs = 0;
 
+        /* FIT is the default type for a new DocumentSet */
         setCorpusOptions(this.corpus,DocumentSetType.FIT);
 
     }
@@ -96,13 +97,14 @@ public class DocumentSet implements Iterable<SparseDoc> {
    Public Methods
    -----------------------------  */
 
-    /* Public method for adding a single document */
+    /* Overloaded public method for adding one file */
     public void addFile(String docName, String pathString) {
 
         this.addFile(docName,Paths.get(pathString));
 
     }
 
+    /* 'base' method for adding one file */
     public void addFile(String docName, Path filePath) {
 
         try {
@@ -154,7 +156,7 @@ public class DocumentSet implements Iterable<SparseDoc> {
 
     }
 
-    /* Finds .txt files in a given folder and collects them into a list of strings */
+    /* Finds .txt files in a given folder and adds them to the DocumentSet */
     private void processInputFolder(Path inputPath) {
 
         if (Files.exists(inputPath)) {
@@ -180,7 +182,7 @@ public class DocumentSet implements Iterable<SparseDoc> {
 
     }
 
-    /* Adds a SparseDocHash to collection, returns assigned index */
+    /* Adds a SparseDoc to collection, returns assigned index */
     private int addSparseDoc(String docName, SparseDoc doc) {
 
         docs.add(doc);
@@ -195,7 +197,12 @@ public class DocumentSet implements Iterable<SparseDoc> {
     /* Builds a SparseDoc object from a raw document */
     private SparseDoc sparsifyDoc(String docName, Path filePath) throws Exception {
 
-        SparseDoc doc = new SparseDoc(docName,defaultDocSize,2);
+        /* At the moment, this is hard-coded to instantiate a 3-byte-element
+           SparseDoc.  The ideal implementation is to start with 2-byte-element arrays,
+           then when I reach 256^2 unique global tokens ids, restart that document with
+           3-byte-element arrays, and then use 3-byte-element from then on.  That
+           allows for maximum compression with only a small performance cost. */
+        SparseDoc doc = new SparseDoc(docName,defaultDocSize,3);
 
         ByteBuffer buf = ByteBuffer.allocate(ioBufferSize);
         byte[] concatBuf = new byte[maxStringLength];
@@ -206,7 +213,7 @@ public class DocumentSet implements Iterable<SparseDoc> {
 
         int bytesRead;
         /* The integer pointer is only necessary to allow the buffer pointer to
-           be reset within addWordToDoc.  If this behavior were done in-line, then
+           be reset within addTokenToDoc.  If this behavior were done in-line, then
            an int would be used. */
         IntegerPtr bufPtr = new IntegerPtr(0);
         /* A performance boost could be gained from generating a string
@@ -233,13 +240,13 @@ public class DocumentSet implements Iterable<SparseDoc> {
                 }
                 else /* then split token */ {
                     if (bufPtr.value > 0) {
-                        addWordToDoc(doc,concatBuf,bufPtr);
+                        addTokenToDoc(doc, concatBuf, bufPtr);
                     }
                 }
                 /* Check that string concat buffer cannot overflow on next iteration.
                    If so, write the current contents of the buffer as a token and reset. */
                 if (bufPtr.value == maxStringLength-1) {
-                    addWordToDoc(doc,concatBuf,bufPtr);
+                    addTokenToDoc(doc, concatBuf, bufPtr);
                 }
             }
 
@@ -251,7 +258,7 @@ public class DocumentSet implements Iterable<SparseDoc> {
     }
 
     /* Adds token to SparseDoc and resets the concat buffer */
-    private void addWordToDoc(SparseDoc doc, byte[] concatBuf, IntegerPtr bufPtr) {
+    private void addTokenToDoc(SparseDoc doc, byte[] concatBuf, IntegerPtr bufPtr) {
 
         String word = new String(concatBuf, 0, bufPtr.value);
         bufPtr.value = 0;
@@ -260,6 +267,17 @@ public class DocumentSet implements Iterable<SparseDoc> {
         if (tokenId != -1) {
             doc.addToken(tokenId);
         }
+    }
+
+    /* Used by sparsifyDoc() and addTokenToDoc() */
+    private class IntegerPtr {
+
+        public int value;
+
+        public IntegerPtr(int value) {
+            this.value = value;
+        }
 
     }
+
 }

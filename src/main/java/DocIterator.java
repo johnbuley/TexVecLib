@@ -14,7 +14,7 @@ public class DocIterator implements Iterator<TokenArrayElement> {
         this.tokenIdsArray = tokenIdsArray;
         this.tokenCountsArray = tokenCountsArray;
         this.length  = length;
-        currentIndex = 0;
+        this.currentIndex = 0;
 
         /* element is the object returned by the iterator, created once. */
         element = new TokenArrayElement();

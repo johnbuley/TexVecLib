@@ -44,6 +44,7 @@ public class Corpus {
 
     }
 
+
 /* ---------------------------
    Get/Set
    ---------------------------  */
@@ -54,8 +55,6 @@ public class Corpus {
     public int getNumDocs() { return this.numDocs; }
 
     public boolean isIdfCalculated() { return this.idfReady; }
-
-    public double getIdf(int tokenId) { return idfByTokenId.get(tokenId); }
 
 
 /* ---------------------------
@@ -84,27 +83,27 @@ public class Corpus {
 
     }
 
-    public String getString(int tokenId) {
-
-        return this.globalStringsByTokenId.get(tokenId);
-
-    }
-
     /* Update docOccurrences and numDocs given a new document. */
     public void addDoc(SparseDoc doc) {
 
-        for(TokenArrayElement token : doc) {
-            if (docOccurrencesByTokenId.containsKey(token.tokenId)) {
-                this.docOccurrencesByTokenId.put(token.tokenId, this.docOccurrencesByTokenId.get(token.tokenId) + 1);
-            } else {
-                this.docOccurrencesByTokenId.put(token.tokenId, 1);
+        /* This method updates the data used for idf calculation, which is only done
+           in the fit step.  If the corpus has been locked, this data should not be
+           modified. */
+        if (!this.locked) {
+            for (TokenArrayElement token : doc) {
+                if (docOccurrencesByTokenId.containsKey(token.tokenId)) {
+                    this.docOccurrencesByTokenId.put(token.tokenId,
+                                                     this.docOccurrencesByTokenId.get(token.tokenId) + 1);
+                } else {
+                    this.docOccurrencesByTokenId.put(token.tokenId, 1);
+                }
             }
+
+            this.numDocs++;
+
+            /* If a document has been added, then a previously calculated idf set is invalid. */
+            this.idfReady = false;
         }
-
-        this.numDocs++;
-
-        /* If a document has been added, then a previously calculated idf set is invalid. */
-        this.idfReady = false;
 
     }
 
@@ -131,18 +130,11 @@ public class Corpus {
 
     }
 
-    public boolean isValidTokenId(int tokenId) {
-
-        return validTokenIds.contains(tokenId);
-
-    }
-
     /* Calculate idf for known documents and store in this.idfByTokenIdf */
     public void calcIdf() {
 
         if (validTokenIds == null)
             this.filterValidTokens(1, 1.);
-
 
         this.idfByTokenId =
                 docOccurrencesByTokenId.entrySet().stream()
@@ -150,6 +142,24 @@ public class Corpus {
                                                            e -> Math.log((float) this.numDocs / e.getValue())));
 
         this.idfReady = true;
+
+    }
+
+    public boolean isValidTokenId(int tokenId) {
+
+        return validTokenIds.contains(tokenId);
+
+    }
+
+    public String getString(int tokenId) {
+
+        return this.globalStringsByTokenId.get(tokenId);
+
+    }
+
+    public double getIdf(int tokenId) {
+
+        return idfByTokenId.get(tokenId);
 
     }
 

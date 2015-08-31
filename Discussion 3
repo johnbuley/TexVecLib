@@ -1,8 +1,8 @@
-Improvements
+An example can be found in /test/java/UserTest.
 
 
 Performance
-Benchmark: 100 mB folder, 2 CPUs available (run on VM)
+Benchmark: 100 mB folder, 2 hyper-threaded CPUs (run on VM)
 
 Branch			master		arrays
 ---------------------------------------------------------
@@ -16,6 +16,7 @@ Footprint		raw size	10% of raw size
 
 Design
 
+----
 The footprint improvement came from the implementation of
 a compressed byte array representation of a document.
 
@@ -23,7 +24,18 @@ A collection is allocated for each SparseDoc to index
 the arrays, but this is disposed when compress() is called,
 so only one such collection exists at any time.
 
+By default, I use 3-byte-element arrays, but in
+DocumentSet.sparsifyDoc() I describe the optimal 
+implementation which allows for greater compression.
 
+----
+One aspect of the design that may not be intuitive 
+is the idea of 'locking' a Corpus.  Locking ensures 
+that no new tokens are added, and global occurrence 
+data is not modified.  The Corpus is unlocked during 
+fitting, and locked during transformation.
+
+----
 The previous version had a procedural flavor to
 it, so I added some abstraction for extensibility.
 
@@ -68,4 +80,5 @@ Issues
 I think the main weakness right now is the input checking
 that's done as DocumentSet and Corpus are passed around.  At
 the moment, I think there are gaps, and where implemented,
-the input checking isn't very intuitive to someone else.
+I don't think the input checking would be very intuitive
+to someone else.

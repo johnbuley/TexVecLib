@@ -9,8 +9,6 @@ public class TestDocumentSet {
     @Test
     public void test_sparsifyDoc() {
 
-        TfIdfVectorizer vec = new TfIdfVectorizer();
-
         int[] expectedCounts = { 2, 1, 1, 1, 1, 2 };
 
         DocumentSet docSet = new DocumentSet();

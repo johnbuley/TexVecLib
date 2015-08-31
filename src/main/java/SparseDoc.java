@@ -1,7 +1,7 @@
 import java.util.HashMap;
 import java.util.Map;
 
-class SparseDoc implements Iterable<TokenArrayElement>{
+public class SparseDoc implements Iterable<TokenArrayElement>{
 
     /* SparseDoc is a container for two IntArrayAsBytes, one storing token ids,
        the other storing token counts.  It returns an iterator that joins the
@@ -58,6 +58,7 @@ class SparseDoc implements Iterable<TokenArrayElement>{
 
     public void addToken(int globalTokenId) {
 
+        /* A sparse doc is locked after compression and becomes effectively immutable */
         if (!this.locked) {
             if (arrayIndex.containsKey(globalTokenId)) {
 

@@ -6,8 +6,8 @@ import java.util.concurrent.*;
 
 public class TfIdfVectorizer {
 
-    /* The fields of TfIdfVectorizer have been distributed to other classes, so at
-       this point the class could be made static. */
+/* The fields of TfIdfVectorizer have been distributed to other classes, so at
+   this point the class could be made static. */
 
 /* --------------------------
    Defaults
@@ -104,6 +104,7 @@ public class TfIdfVectorizer {
 
         docSet.addFolder(inputFolder);
 
+        /* Call 'base' method now that input is formatted */
         return transform(docSet,this.fit(docSet,minDf,maxDfRatio));
 
     }
@@ -145,7 +146,7 @@ public class TfIdfVectorizer {
            it to the result matrix. */
         asyncCalcTfIdfAndWrite(docSet, docIndex, corpus, presentTokenIndex, resultMatrix);
 
-        normalizeTfIdfMatrixRowWise(resultMatrix);
+        normalizeTfIdfMatrixRows(resultMatrix);
 
 
         /* Create an index by strings, for use by the user */
@@ -153,6 +154,7 @@ public class TfIdfVectorizer {
 
         presentTokenIndex.entrySet().forEach(entry ->
                 presentTokenStringIndex.put(corpus.getString(entry.getKey()), entry.getValue()));
+
 
         return new TfIdfMatrix(resultMatrix,presentTokenStringIndex,docIndex);
     }
@@ -267,7 +269,7 @@ public class TfIdfVectorizer {
     }
 
     /* Transform each row of a matrix to a unit vector */
-    private void normalizeTfIdfMatrixRowWise(double[][] matrix) {
+    private void normalizeTfIdfMatrixRows(double[][] matrix) {
 
         int m = matrix.length;
         int n = matrix[0].length;
