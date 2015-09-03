@@ -1,7 +1,14 @@
-An example can be found in /test/java/UserTest.
+Examples can be found in /test/java/UserTest.
+
+This implementation focuses on the task of processing
+and analyzing a large set of documents (10-30gB) in memory.  
+In general, this problem lends itself to a distributed 
+solution, but focusing on the single-machine case allowed 
+me to explore different approaches to data compression.
 
 
 Performance
+
 Benchmark: 100 mB folder, 2 hyper-threaded CPUs (run on VM)
 
 Branch			master		arrays
@@ -12,6 +19,41 @@ Time ex. ingestion	500		250
 ---------------------------------------------------------
 Footprint		raw size	10% of raw size	
 ---------------------------------------------------------
+
+
+Footprint estimate is based on:
+
+1) Rough sample indicated that 10% of tokens are distinct
+2) A String-Integer pair requires 50-70 bytes
+3) An n-byte-element can represent a token id and count with
+   2*n bytes.
+
+
+Alternatives I considered for document representation:
+
+1) Using a HashMap<Integer,Integer>, but this is still at
+   least 32 bytes per token, because standard Collections
+   cannot store primitive types.
+
+2) Enable string deduplication.  This requires 20-24 bytes
+   for a String-Integer pair (depending on system architecture, 
+   use of pointer compression), carries no guarantee, and 
+   increases the GC workload.
+
+3) A 3rd-party library providing primitive collections
+   would be worth exploring.  This could be more performant 
+   than the byte-array representation, but would still have a 
+   larger footprint than a set of 2- and 3-byte-element arrays.
+
+The weakness of the byte-array representation is that retrieval
+of a particular token is O(n).  However, this is not an issue
+within the context of this problem, because all analysis is
+performed with passes over the entire document.
+
+This implementation still uses a global String-Integer HashMap
+to index tokens, but the size of this is proportional to the
+number of distinct tokens in the corpus, and so should
+scale logarithmically.
 
 
 Design
