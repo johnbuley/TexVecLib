@@ -19,7 +19,7 @@ have a high score.  This can be used as a basic keyword-extraction
 criterion. 
 
 
-Requirements for building
+Build requirements
 ---------------------------------------------------------------
 Java SDK 1.8
 JUnit and JAMA for test module
@@ -85,22 +85,22 @@ class TfIdfMatrix
   public String getDocAt(int)	    returns doc at row index
 
 
-class Corpus
+class CorpusMetadata
 
-  public addDoc(SparseDoc)	    updates Corpus for new doc
+  public addDoc(SparseDoc)	    updates CorpusMetadata for new doc
 
   public filterValidTokens	    filters a collection of tokens to
 	(int,double)	            be used for tf-idf calc
 
   public calcIdf()		    calculate idf for all known
-                                    tokens in the corpus; not
+                                    tokens in the corpusMetadata; not
                                     dependent on valid tokens
 
 
 class DocumentSet
 
-  public enum DocumentSetType	    if FIT, then corpus unlocked
-                                    if TRANSFORM, corpus locked
+  public enum DocumentSetType	    if FIT, then corpusMetadata unlocked
+                                    if TRANSFORM, corpusMetadata locked
                                     (no new tokens)
 
 

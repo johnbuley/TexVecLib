@@ -42,26 +42,26 @@ public class TfIdfVectorizer {
  * -------------------------- */
 
     /* Base method for training a tf-idf model */
-    public Corpus fit(DocumentSet docSet, int minDf, double maxDfRatio) {
+    public CorpusMetadata fit(DocumentSet docSet, int minDf, double maxDfRatio) {
 
-        Corpus corpus = docSet.getCorpus();
+        CorpusMetadata corpusMetadata = docSet.getCorpusMetadata();
 
-        corpus.filterValidTokens(minDf, maxDfRatio);
-        corpus.calcIdf();
-        corpus.setLock(true);
+        corpusMetadata.filterValidTokens(minDf, maxDfRatio);
+        corpusMetadata.calcIdf();
+        corpusMetadata.setLock(true);
 
-        return corpus;
+        return corpusMetadata;
 
     }
 
     /* Base method for generating a tf-idf matrix */
-    public TfIdfMatrix transform(DocumentSet docSet, Corpus corpus) {
+    public TfIdfMatrix transform(DocumentSet docSet, CorpusMetadata corpusMetadata) {
 
-        if (!corpus.isIdfCalculated()) {
-            corpus.calcIdf();
+        if (!corpusMetadata.isIdfCalculated()) {
+            corpusMetadata.calcIdf();
         }
 
-        return this.getTfIdfMatrix(docSet, corpus);
+        return this.getTfIdfMatrix(docSet, corpusMetadata);
 
     }
 
@@ -73,7 +73,7 @@ public class TfIdfVectorizer {
     }
 
     /* This is an overloaded method for handling folder inputs */
-    public Corpus fit(String inputFolder, int minDf, double maxDfRatio) {
+    public CorpusMetadata fit(String inputFolder, int minDf, double maxDfRatio) {
 
         DocumentSet docSet = new DocumentSet();
 
@@ -85,15 +85,15 @@ public class TfIdfVectorizer {
     }
 
     /* This is an overloaded method for handling folder inputs */
-    public TfIdfMatrix transform(String inputFolder, Corpus corpus) {
+    public TfIdfMatrix transform(String inputFolder, CorpusMetadata corpusMetadata) {
 
         DocumentSet docSet =
-                new DocumentSet(DocumentSet.DocumentSetType.TRANSFORM, corpus);
+                new DocumentSet(DocumentSet.DocumentSetType.TRANSFORM, corpusMetadata);
 
         docSet.addFolder(inputFolder);
 
         /* Call 'base' method now that input is formatted */
-        return this.transform(docSet, corpus);
+        return this.transform(docSet, corpusMetadata);
 
     }
 
@@ -116,14 +116,14 @@ public class TfIdfVectorizer {
 
     /* Top-level method for returning a TfIdfMatrix object */
     private TfIdfMatrix getTfIdfMatrix(DocumentSet docSet,
-                                       Corpus corpus) {
+                                       CorpusMetadata corpusMetadata) {
 
         /* This method requires two passes over the documents.  This first pass
            determines the subset of the global vocabulary that is present in
            the documents.  In this way, the tf-idf matrix need only be as large
            as numDocs x |subset of vocabulary|. */
         ConcurrentHashMap<Integer,Integer> presentTokenIndex =
-                    getPresentTokenIndex(docSet, corpus);
+                    getPresentTokenIndex(docSet, corpusMetadata);
 
 
         /* Assign row indices to each doc key */
@@ -144,7 +144,7 @@ public class TfIdfVectorizer {
 
         /* This second pass calculates the tf-idf for each word, and writes
            it to the result matrix. */
-        asyncCalcTfIdfAndWrite(docSet, docIndex, corpus, presentTokenIndex, resultMatrix);
+        asyncCalcTfIdfAndWrite(docSet, docIndex, corpusMetadata, presentTokenIndex, resultMatrix);
 
         normalizeTfIdfMatrixRows(resultMatrix);
 
@@ -153,7 +153,7 @@ public class TfIdfVectorizer {
         Map<String,Integer> presentTokenStringIndex = new HashMap<>(presentTokenIndex.size());
 
         presentTokenIndex.entrySet().forEach(entry ->
-                presentTokenStringIndex.put(corpus.getString(entry.getKey()), entry.getValue()));
+                presentTokenStringIndex.put(corpusMetadata.getString(entry.getKey()), entry.getValue()));
 
 
         return new TfIdfMatrix(resultMatrix,presentTokenStringIndex,docIndex);
@@ -162,19 +162,19 @@ public class TfIdfVectorizer {
     /* Returns a hashmap that is an index of the 'valid' words, which is the intersection of the
        fit and transform corpora. */
     private ConcurrentHashMap<Integer,Integer> getPresentTokenIndex(DocumentSet docSet,
-                                                                    Corpus corpus) {
+                                                                    CorpusMetadata corpusMetadata) {
 
         ConcurrentHashMap<Integer,Integer> presentWordsIndex =
                     new ConcurrentHashMap<>(defaultCorpusSize);
 
         /* Iterate through documents.  If a word in the doc set is a 'valid' word in
-           the corpus, then add it to the set of valid words. */
+           the corpusMetadata, then add it to the set of valid words. */
 
         int i = 0;
         for (SparseDoc doc : docSet) {
             for (TokenArrayElement token : doc) {
                 if (!presentWordsIndex.containsKey(token.tokenId)) {
-                    if (corpus.isValidTokenId(token.tokenId)) {
+                    if (corpusMetadata.isValidTokenId(token.tokenId)) {
                         presentWordsIndex.put(token.tokenId,i++);
                     }
                 }
@@ -188,7 +188,7 @@ public class TfIdfVectorizer {
     /* This method asynchronously calls getTfIdfEntries() and then writeTfIdfEntriesToMatrix() */
     private void asyncCalcTfIdfAndWrite(DocumentSet docSet,
                                         Map<String, Integer> docIndex,
-                                        Corpus corpus,
+                                        CorpusMetadata corpusMetadata,
                                         ConcurrentHashMap<Integer, Integer> presentWordsListIndex,
                                         double[][] resultMatrix) {
 
@@ -201,7 +201,7 @@ public class TfIdfVectorizer {
 
         docSet.forEach(doc ->
                 tasks.add(executorService.submit(() ->
-                    writeTfIdfEntriesToMatrix(doc,corpus,presentWordsListIndex,
+                    writeTfIdfEntriesToMatrix(doc, corpusMetadata,presentWordsListIndex,
                                               docIndex.get(doc.docName),resultMatrix))));
 
         waitForTasksToComplete(tasks);
@@ -210,14 +210,14 @@ public class TfIdfVectorizer {
     }
 
     /* Writes the sparse (hash) representation of the non-zero entries to a matrix */
-    private void writeTfIdfEntriesToMatrix(SparseDoc doc, Corpus corpus,
+    private void writeTfIdfEntriesToMatrix(SparseDoc doc, CorpusMetadata corpusMetadata,
                                            ConcurrentHashMap<Integer, Integer> presentWordsListIndex,
                                            int row, double[][] resultMatrix) {
 
         doc.forEach(token -> {
             if (presentWordsListIndex.containsKey(token.tokenId)) {
                 resultMatrix[row][presentWordsListIndex.get(token.tokenId)] =
-                            corpus.getIdf(token.tokenId)*token.tokenCount;
+                            corpusMetadata.getIdf(token.tokenId)*token.tokenCount;
             }
         });
 

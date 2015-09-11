@@ -25,7 +25,7 @@ public class DocumentSet implements Iterable<SparseDoc> {
 
     private final Map<String,Integer> docIndex;
     private final List<SparseDoc> docs;
-    private final Corpus corpus;
+    private final CorpusMetadata corpusMetadata;
     private int numDocs;
 
 
@@ -46,22 +46,22 @@ public class DocumentSet implements Iterable<SparseDoc> {
 
         this.docIndex = new HashMap<>();
         this.docs = new ArrayList<>();
-        this.corpus = new Corpus();
+        this.corpusMetadata = new CorpusMetadata();
         this.numDocs = 0;
 
         /* FIT is the default type for a new DocumentSet */
-        setCorpusOptions(this.corpus,DocumentSetType.FIT);
+        setCorpusOptions(this.corpusMetadata,DocumentSetType.FIT);
 
     }
 
-    public DocumentSet(DocumentSetType type, Corpus corpus) {
+    public DocumentSet(DocumentSetType type, CorpusMetadata corpusMetadata) {
 
         this.docIndex = new HashMap<>();
         this.docs = new ArrayList<>();
-        this.corpus = corpus;
+        this.corpusMetadata = corpusMetadata;
         this.numDocs = 0;
 
-        setCorpusOptions(this.corpus,type);
+        setCorpusOptions(this.corpusMetadata,type);
 
     }
 
@@ -79,7 +79,7 @@ public class DocumentSet implements Iterable<SparseDoc> {
     public int getDefaultDocSize() { return defaultDocSize; }
     public void setDefaultDocSize(int value) { defaultDocSize = value; }
 
-    public Corpus getCorpus() { return this.corpus; }
+    public CorpusMetadata getCorpusMetadata() { return this.corpusMetadata; }
 
     public int numDocs() { return this.numDocs; }
 
@@ -109,7 +109,7 @@ public class DocumentSet implements Iterable<SparseDoc> {
 
         try {
             SparseDoc doc = this.sparsifyDoc(filePath.getFileName().toString(), filePath);
-            this.corpus.addDoc(doc);
+            this.corpusMetadata.addDoc(doc);
             doc.compress();
             this.addSparseDoc(docName, this.sparsifyDoc(docName, filePath));
         }
@@ -139,19 +139,19 @@ public class DocumentSet implements Iterable<SparseDoc> {
    -----------------------------  */
 
     /* I see two alternative ways to control the interaction between a DocumentSet
-       and its Corpus.  Inheritance doesn't necessarily address the issue, because
+       and its CorpusMetadata.  Inheritance doesn't necessarily address the issue, because
        the interaction can change over the life of the object.  I could expect
        the consumer of the library to set these parameters manually, but that's
        not very clean and prone to error.  So DocumentSetType allows for the definition
        of parameter templates that can be used to control locking, compression, and
        other behavior. */
-    private void setCorpusOptions(Corpus corpus, DocumentSetType type) {
+    private void setCorpusOptions(CorpusMetadata corpusMetadata, DocumentSetType type) {
 
         if (type == DocumentSetType.FIT) {
-            corpus.setLock(false);
+            corpusMetadata.setLock(false);
         }
         else if (type == DocumentSetType.TRANSFORM) {
-            corpus.setLock(true);
+            corpusMetadata.setLock(true);
         }
 
     }
@@ -263,7 +263,7 @@ public class DocumentSet implements Iterable<SparseDoc> {
         String word = new String(concatBuf, 0, bufPtr.value);
         bufPtr.value = 0;
 
-        int tokenId = this.corpus.getId(word);
+        int tokenId = this.corpusMetadata.getId(word);
         if (tokenId != -1) {
             doc.addToken(tokenId);
         }

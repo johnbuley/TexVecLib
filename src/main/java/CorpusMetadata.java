@@ -5,7 +5,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-public class Corpus {
+public class CorpusMetadata {
 
 /* ---------------------------
    Fields
@@ -33,7 +33,7 @@ public class Corpus {
    Constructor
    ---------------------------  */
 
-    public Corpus() {
+    public CorpusMetadata() {
 
         this.locked = false;
         this.idfReady = false;

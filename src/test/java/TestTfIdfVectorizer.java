@@ -27,15 +27,15 @@ public class TestTfIdfVectorizer {
     public void test_getTfIdfMatrix() {
 
         DocumentSet docSet = Utilities.getMockDocs();
-        Corpus testCorpus = docSet.getCorpus();
+        CorpusMetadata testCorpusMetadata = docSet.getCorpusMetadata();
 
-        testCorpus.filterValidTokens(1, .7);
-        testCorpus.calcIdf();
+        testCorpusMetadata.filterValidTokens(1, .7);
+        testCorpusMetadata.calcIdf();
 
         TfIdfVectorizer vec = new TfIdfVectorizer();
 
-        Object[] testInputArray = { docSet, testCorpus };
-        Class<?>[] testClassArray = {DocumentSet.class, Corpus.class};
+        Object[] testInputArray = { docSet, testCorpusMetadata};
+        Class<?>[] testClassArray = {DocumentSet.class, CorpusMetadata.class};
 
         TfIdfMatrix producedResult =
                 (TfIdfMatrix) Utilities.callTfIdfPrivateMethod("getTfIdfMatrix", vec,

@@ -40,14 +40,14 @@ public class UserTest {
         fitDocSet.addFile("odyssey", "./src/test/resources/twainhomer/odyssey.txt");
         fitDocSet.addFile("sawyer","./src/test/resources/twainhomer/sawyer.txt");
 
-        Corpus corpus = vec.fit(fitDocSet,1,1.0);
+        CorpusMetadata corpusMetadata = vec.fit(fitDocSet,1,1.0);
 
-        DocumentSet transformDocSet = new DocumentSet(DocumentSet.DocumentSetType.TRANSFORM,corpus);
+        DocumentSet transformDocSet = new DocumentSet(DocumentSet.DocumentSetType.TRANSFORM, corpusMetadata);
 
         transformDocSet.addFile("iliad", "./src/test/resources/twainhomer/iliad.txt");
         transformDocSet.addFile("huckfinn", "./src/test/resources/twainhomer/huckfinn.txt");
 
-        result = vec.transform(transformDocSet,corpus);
+        result = vec.transform(transformDocSet, corpusMetadata);
 
         matrix = new Matrix(result.matrix);
 
@@ -55,7 +55,7 @@ public class UserTest {
 
         System.out.println();
         System.out.println("two-step example:");
-        System.out.println("different parameters are used, so different result is expected");
+        System.out.println("different inputs are used, so different result is expected");
         System.out.println();
         printResult(result,similarity);
 

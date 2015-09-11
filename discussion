@@ -1,17 +1,79 @@
 Examples can be found in /test/java/UserTest.
 
+
 This implementation focuses on the task of processing
 and analyzing a large set of documents (10-30gB) in memory.  
 In general, this problem lends itself to a distributed 
 solution, but focusing on the single-machine case allowed 
 me to explore different approaches to data compression.
 
+The motivation for the approach I used is the need for 
+a way around the excessive heap allocation required by 
+storing documents in Java Collections.
+
+This approach reduces the memory footprint of a term-count
+representation of a document by 90% vs the benchmark:
+a Map<String,Integer>.
+
+
+Method
+
+- A SparseDocument contains two arrays.  One is an array
+  of integers (as bytes) that represent global token ids.
+  The other is an array of integers (as bytes) that
+  map a token id in the first array to the count of that 
+  token in the SparseDocument.
+
+- Compression is attained by representing each integer
+  with n contiguous bytes in big-endian format, where 
+  n = 2 or 3 in most reasonable cases.  The class 
+  IntArrayAsBytes provides an interface for reading and 
+  writing to a byte array of size n*|token set| using 
+  a reduced index of size |token set|.
+
+- This method of document representation  does not allow 
+  for O(1) membership testing; however, tf-idf vectorization 
+  relies on passes over the complete document, so there
+  is no performance cost.
+
+----
+Example:
+
+Hash representation of document:
+
+{'the' : 2, 'dog' : 3}
+
+Token ids:
+
+{ ... 'the' : 255 ... 'dog' : 65535 ... }
+
+Token id array (2 bytes per int):
+
+Address     |  0  |   1   |   2   |   3   |
+Byte value  |  0  |  255  |  255  |  255  |
+                \   /           \   /
+            |    the      |      dog      |
+
+Address     |  0  |   1   |   2   |   3   |
+Byte value  |  0  |   2   |   0   |   3   |
+
+
+----
+There are clear opportunities for further compression; for
+instance, the count array will generally require fewer 
+bytes per integer than the id array.
+
+Additionally, the document processor can initially create
+2-byte arrays.  When it runs out of global token id 
+space (256^2), restart the current document and then
+proceed to create 3-byte arrays, and so on.
+
 
 Performance
 
 Benchmark: 100 mB folder, 2 hyper-threaded CPUs (run on VM)
 
-Branch			master		arrays
+Branch			initial		master
 ---------------------------------------------------------
 Ingestion time          3000 ms		3000
 ---------------------------------------------------------
@@ -52,7 +114,7 @@ performed with passes over the entire document.
 
 This implementation still uses a global String-Integer HashMap
 to index tokens, but the size of this is proportional to the
-number of distinct tokens in the corpus, and so should
+number of distinct tokens in the corpusMetadata, and so should
 scale logarithmically.
 
 
@@ -72,9 +134,9 @@ implementation which allows for greater compression.
 
 ----
 One aspect of the design that may not be intuitive 
-is the idea of 'locking' a Corpus.  Locking ensures 
+is the idea of 'locking' a CorpusMetadata.  Locking ensures
 that no new tokens are added, and global occurrence 
-data is not modified.  The Corpus is unlocked during 
+data is not modified.  The CorpusMetadata is unlocked during
 fitting, and locked during transformation.
 
 ----
@@ -83,13 +145,13 @@ it, so I added some abstraction for extensibility.
 
 Advantages:
 
-   A Corpus object is essentially the set of metadata for
+   A CorpusMetadata object is essentially the set of metadata for
    a DocumentSet data model.  All of the relevant metadata
-   is encapsulated in a Corpus, and so this can be
+   is encapsulated in a CorpusMetadata, and so this can be
    serialized or written to a database for later use, and
    the DocumentSet may be disposed.  A use case would be
    processing a new set of documents each day, which will
-   be added to the existing Corpus.
+   be added to the existing CorpusMetadata.
 
    The functionality of the library can be expanded more
    easily because the calculation of TfIdfVectorizer has
@@ -97,8 +159,8 @@ Advantages:
 
 Disadvantages:
 
-   As the DocumentSet and Corpus are passed around, more
-   input checking is required.  Additionally, the Corpus
+   As the DocumentSet and CorpusMetadata are passed around, more
+   input checking is required.  Additionally, the CorpusMetadata
    in particular can occupy different states, enforced
    by locking.  I chose to handle this with the 
    enum DocumentSetType passed to DocumentSet, but I don't
@@ -120,7 +182,7 @@ the master branch.
 Issues
 
 I think the main weakness right now is the input checking
-that's done as DocumentSet and Corpus are passed around.  At
+that's done as DocumentSet and CorpusMetadata are passed around.  At
 the moment, I think there are gaps, and where implemented,
 I don't think the input checking would be very intuitive
 to someone else.
