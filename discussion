@@ -43,7 +43,7 @@ Hash representation of document:
 
 {'the' : 2, 'dog' : 3}
 
-Token ids:
+Global token ids (shared by all docs):
 
 { ... 'the' : 255 ... 'dog' : 65535 ... }
 
