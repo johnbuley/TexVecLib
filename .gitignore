@@ -4,3 +4,5 @@
 target/*
 /src/test/resources/bigtest/
 .idea/workspace.xml
+.idea/*
+*.iml
